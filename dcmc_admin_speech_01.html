@@ -992,12 +992,12 @@ socket.on('readOutFrequencyLeftRight', function(data) {
     y3.splice(0,1); // na mestu 0 v polju y izbrišemo eno vrednost
     y3[999] = data.frequencyLeft;
     for (i=0; i<1000; i++) { // zanka za izris vrednosti na platnu
-        ctx3.lineTo(x3[i], (100 - (y3[i] / 50) * 100 )); // narišemo linijo do naslednje točke ; 100 -, zaradi obrnjenega izrisa grafa, 0,0 je levo zgoraj na monitorju
+        ctx3.lineTo(x3[i], (50 - (y3[i] / 1000) * 100 )); // narišemo linijo do naslednje točke ; 100 -, zaradi obrnjenega izrisa grafa, 0,0 je levo zgoraj na monitorju
     }
     ctx3.stroke(); // če želimo linijo prikazati na platnu moramo uporabiti "stroke()"
     ctx3.fillText(data.frequencyLeft, 1, 10); //Izpišemo trenutno vrednost potenciometra
-    ctx3.fillText("50", 973, 10); //Izpišemo min vrednost potenciometra
-    ctx3.fillText("0", 973, 97); // Izpišemo max vrednost potenciometra 
+    ctx3.fillText("500", 973, 10); //Izpišemo min vrednost potenciometra
+    ctx3.fillText("-500", 973, 97); // Izpišemo max vrednost potenciometra 
 
     // Plot frequency Right
     log("F = " + data.rightCount);
@@ -1008,15 +1008,46 @@ socket.on('readOutFrequencyLeftRight', function(data) {
     y6.splice(0,1); // na mestu 0 v polju y izbrišemo eno vrednost
     y6[999] = data.frequencyRight;
     for (i=0; i<1000; i++) { // zanka za izris vrednosti na platnu
-        ctx6.lineTo(x6[i], (100 - (y6[i] / 50) * 100 )); // narišemo linijo do naslednje točke ; 100 -, zaradi obrnjenega izrisa grafa, 0,0 je levo zgoraj na monitorju
+        ctx6.lineTo(x6[i], (50 - (y6[i] / 1000) * 100 )); // narišemo linijo do naslednje točke ; 100 -, zaradi obrnjenega izrisa grafa, 0,0 je levo zgoraj na monitorju
     }
     ctx6.stroke(); // če želimo linijo prikazati na platnu moramo uporabiti "stroke()"
     ctx6.fillText(data.frequencyRight, 1, 10); //Izpišemo trenutno vrednost potenciometra
-    ctx6.fillText("50", 973, 10); //Izpišemo min vrednost potenciometra
-    ctx6.fillText("0", 973, 97); // Izpišemo max vrednost potenciometra 
+    ctx6.fillText("500", 973, 10); //Izpišemo min vrednost potenciometra
+    ctx6.fillText("-500", 973, 97); // Izpišemo max vrednost potenciometra 
     
 
-});            
+});
+    
+socket.on('readOutControlLeftRight', function(data) {
+    //log(data.vrednost);
+    //log(data.cas);
+    ControlValueLeft = data.PWMleft;
+    ctx2.clearRect(0,0,canvas2.width, canvas2.height); // brišemo platno -> clearRect
+    ctx2.beginPath(); // to vrstico moramo zapisati, da se prične izris vsebine na platnu znova
+    y2.splice(0,1); // na mestu 0 v polju y izbrišemo eno vrednost
+    y2[999] = ControlValueLeft;
+    for (i=0; i<1000; i++) { // zanka za izris vrednosti na platnu
+        ctx2.lineTo(x2[i], (100 - y2[i]/255 * 100 )); // narišemo linijo do naslednje točke ; 100 -, zaradi obrnjenega izrisa grafa, 0,0 je levo zgoraj na monitorju
+    }
+    ctx2.stroke(); // če želimo linijo prikazati na platnu moramo uporabiti "stroke()"
+    ctx2.fillText(ControlValueLeft, 1, 10); //Izpišemo trenutno vrednost potenciometra
+    ctx2.fillText("255", 973, 10); //Izpišemo min vrednost potenciometra
+    ctx2.fillText("0", 973, 97); // Izpišemo max vrednost potenciometra
+    //log(data.vrednost);
+    //log(data.cas);
+    ControlValueRight = data.PWMright;
+    ctx5.clearRect(0,0,canvas5.width, canvas5.height); // brišemo platno -> clearRect
+    ctx5.beginPath(); // to vrstico moramo zapisati, da se prične izris vsebine na platnu znova
+    y5.splice(0,1); // na mestu 0 v polju y izbrišemo eno vrednost
+    y5[999] = ControlValueRight;
+    for (i=0; i<1000; i++) { // zanka za izris vrednosti na platnu
+        ctx5.lineTo(x5[i], (100 - y5[i]/255 * 100 )); // narišemo linijo do naslednje točke ; 100 -, zaradi obrnjenega izrisa grafa, 0,0 je levo zgoraj na monitorju
+    }
+    ctx5.stroke(); // če želimo linijo prikazati na platnu moramo uporabiti "stroke()"
+    ctx5.fillText(ControlValueRight, 1, 10); //Izpišemo trenutno vrednost potenciometra
+    ctx5.fillText("255", 973, 10); //Izpišemo min vrednost potenciometra
+    ctx5.fillText("0", 973, 97); // Izpišemo max vrednost potenciometra
+});    
     
 socket.on('klientBeri2', function(data) {
     log(data.vrednost);
