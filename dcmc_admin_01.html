@@ -285,7 +285,7 @@ function load() {
     
     
 // JavaScript, ki bo uporabljen na strani klienta zapišemo tu
-var socket = io.connect("193.2.123.42:8080"); // ustvarimo spremenljivko socket in povemo, kam se povežemo (vtaknemo)
+var socket = io.connect("192.168.1.131:8080"); // ustvarimo spremenljivko socket in povemo, kam se povežemo (vtaknemo)
 //var socket = io.connect("193.2.123.38:8080"); // ustvarimo spremenljivko socket in povemo, kam se povežemo (vtaknemo)
                                                // io.connect je iz knjižnice socket.io.js, argument je, kam se priključimo
                                                // ta vrstica pove, naj se klient poveže s strežnikom na naslovu http://93.103.18.222:8080
@@ -977,13 +977,13 @@ socket.on('readOutFrequencyLeftRight', function(data) {
     ctx3.beginPath(); // to vrstico moramo zapisati, da se prične izris vsebine na platnu znova
     y3.splice(0,1); // na mestu 0 v polju y izbrišemo eno vrednost
     y3[999] = data.frequencyLeft;
-    for (i=0; i<1000; i++) { // zanka za izris vrednosti na platnu
-        ctx3.lineTo(x3[i], (50 - (y3[i] / 1000) * 100 )); // narišemo linijo do naslednje točke ; 100 -, zaradi obrnjenega izrisa grafa, 0,0 je levo zgoraj na monitorju
+    for (var i=0; i<1000; i++) { // zanka za izris vrednosti na platnu
+        ctx3.lineTo(x3[i], (50 - (y3[i] / 300) * 100 )); // narišemo linijo do naslednje točke ; 100 -, zaradi obrnjenega izrisa grafa, 0,0 je levo zgoraj na monitorju
     }
     ctx3.stroke(); // če želimo linijo prikazati na platnu moramo uporabiti "stroke()"
     ctx3.fillText(data.frequencyLeft, 1, 10); //Izpišemo trenutno vrednost potenciometra
-    ctx3.fillText("500", 973, 10); //Izpišemo min vrednost potenciometra
-    ctx3.fillText("-500", 973, 97); // Izpišemo max vrednost potenciometra 
+    ctx3.fillText("150", 973, 10); //Izpišemo min vrednost potenciometra
+    ctx3.fillText("-150", 973, 97); // Izpišemo max vrednost potenciometra 
 
     // Plot frequency Right
     log("F = " + data.rightCount);
@@ -993,13 +993,13 @@ socket.on('readOutFrequencyLeftRight', function(data) {
     ctx6.beginPath(); // to vrstico moramo zapisati, da se prične izris vsebine na platnu znova
     y6.splice(0,1); // na mestu 0 v polju y izbrišemo eno vrednost
     y6[999] = data.frequencyRight;
-    for (i=0; i<1000; i++) { // zanka za izris vrednosti na platnu
-        ctx6.lineTo(x6[i], (50 - (y6[i] / 1000) * 100 )); // narišemo linijo do naslednje točke ; 100 -, zaradi obrnjenega izrisa grafa, 0,0 je levo zgoraj na monitorju
+    for (var i=0; i<1000; i++) { // zanka za izris vrednosti na platnu
+        ctx6.lineTo(x6[i], (50 - (y6[i] / 300) * 100 )); // narišemo linijo do naslednje točke ; 100 -, zaradi obrnjenega izrisa grafa, 0,0 je levo zgoraj na monitorju
     }
     ctx6.stroke(); // če želimo linijo prikazati na platnu moramo uporabiti "stroke()"
     ctx6.fillText(data.frequencyRight, 1, 10); //Izpišemo trenutno vrednost potenciometra
-    ctx6.fillText("500", 973, 10); //Izpišemo min vrednost potenciometra
-    ctx6.fillText("-500", 973, 97); // Izpišemo max vrednost potenciometra 
+    ctx6.fillText("150", 973, 10); //Izpišemo min vrednost potenciometra
+    ctx6.fillText("-150", 973, 97); // Izpišemo max vrednost potenciometra 
     
 
 });            
@@ -1016,12 +1016,12 @@ socket.on('readOutControlLeftRight', function(data) {
     y2.splice(0,1); // na mestu 0 v polju y izbrišemo eno vrednost
     y2[999] = ControlValueLeft;
     for (i=0; i<1000; i++) { // zanka za izris vrednosti na platnu
-        ctx2.lineTo(x2[i], (100 - y2[i]/255 * 100 )); // narišemo linijo do naslednje točke ; 100 -, zaradi obrnjenega izrisa grafa, 0,0 je levo zgoraj na monitorju
+        ctx2.lineTo(x2[i], (50 - y2[i]/250 * 100 )); // narišemo linijo do naslednje točke ; 100 -, zaradi obrnjenega izrisa grafa, 0,0 je levo zgoraj na monitorju
     }
     ctx2.stroke(); // če želimo linijo prikazati na platnu moramo uporabiti "stroke()"
     ctx2.fillText(ControlValueLeft, 1, 10); //Izpišemo trenutno vrednost potenciometra
-    ctx2.fillText("255", 973, 10); //Izpišemo min vrednost potenciometra
-    ctx2.fillText("0", 973, 97); // Izpišemo max vrednost potenciometra
+    ctx2.fillText("125", 973, 10); //Izpišemo min vrednost potenciometra
+    ctx2.fillText("-125", 973, 97); // Izpišemo max vrednost potenciometra
     //log(data.vrednost);
     //log(data.cas);
     ControlValueRight = data.PWMright;
@@ -1030,12 +1030,12 @@ socket.on('readOutControlLeftRight', function(data) {
     y5.splice(0,1); // na mestu 0 v polju y izbrišemo eno vrednost
     y5[999] = ControlValueRight;
     for (i=0; i<1000; i++) { // zanka za izris vrednosti na platnu
-        ctx5.lineTo(x5[i], (100 - y5[i]/255 * 100 )); // narišemo linijo do naslednje točke ; 100 -, zaradi obrnjenega izrisa grafa, 0,0 je levo zgoraj na monitorju
+        ctx5.lineTo(x5[i], (50 - y5[i]/250 * 100 )); // narišemo linijo do naslednje točke ; 100 -, zaradi obrnjenega izrisa grafa, 0,0 je levo zgoraj na monitorju
     }
     ctx5.stroke(); // če želimo linijo prikazati na platnu moramo uporabiti "stroke()"
     ctx5.fillText(ControlValueRight, 1, 10); //Izpišemo trenutno vrednost potenciometra
-    ctx5.fillText("255", 973, 10); //Izpišemo min vrednost potenciometra
-    ctx5.fillText("0", 973, 97); // Izpišemo max vrednost potenciometra
+    ctx5.fillText("125", 973, 10); //Izpišemo min vrednost potenciometra
+    ctx5.fillText("-125", 973, 97); // Izpišemo max vrednost potenciometra
 });    
     
         

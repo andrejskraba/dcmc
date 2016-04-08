@@ -10,26 +10,103 @@ Cybernetics & Decision Support Systems Laboratory ********************
 
 var firmata = require("firmata");
 
-var LeftEncPin1 = 22;
-var LeftEncPin2 = 23;
-var LeftEncPin3 = 24;
+var LeftEncPin1 = 8;
+var LeftEncPin2 = 9;
+var LeftEncPin3 = 10;
 
-var RightEncPin1 = 25;
-var RightEncPin2 = 26;
-var RightEncPin3 = 27;
+var RightEncPin1 = 11;
+var RightEncPin2 = 12;
+var RightEncPin3 = 13;
 
 var LeftPWMPin = 6;
-var RightPWMPin = 7;
+var RightPWMPin = 5;
 
 var LeftDirectionPin = 2;
 var RightDirectionPin = 4;
 
 var SolenoidPin = 3;
-
+var FrequencyAveInterval = 12;
 
 var Speed = 50;
 
 var ArduinoStarted = false;
+
+var USSensor = new Array();
+    USSensor[0] = 0;
+    USSensor[1] = 0;
+    USSensor[2] = 0;
+    USSensor[3] = 0;
+    USSensor[4] = 0;
+    USSensor[5] = 0;
+    USSensor[6] = 0;
+    USSensor[7] = 0;
+    USSensor[8] = 0;
+    USSensor[9] = 0;
+    USSensor[10] = 0;
+    USSensor[11] = 0;
+    USSensor[12] = 0;
+
+
+var SerialPort = require("serialport").SerialPort
+var serialPort = new SerialPort("/dev/ttyACM1", {
+  baudRate: 115200, 
+  dataBits: 8, 
+  parity: 'none',
+  stopBits: 1, 
+  flowControl: false
+}, false); // this is the openImmediately flag [default is true]
+
+var cleanData = ''; // var for storing the clean data (without 'A' and 'B')
+var readData = '';  // buffer storage
+
+serialPort.open(function (error) {
+  if (error) {
+    console.log('failed to open: '+error);
+  } else {
+    console.log('open');
+    serialPort.on('data', function(data) { // call back when data is received
+      readData += data.toString(); // append data to buffer
+      // if the letters 'A' and 'B' are found on the buffer then isolate what's in the middle
+      // as clean data. Then clear the buffer.
+      if (readData.indexOf('\n') >= 0) {
+        //cleanData = readData.substring(1, readData.indexOf('\n'));
+        var SensCounter = 0;
+        var SensorBuffer = '';
+        for (var i=0;i!=readData.length;i++)
+        {
+            if (readData[i] == '=')
+            {
+                i++;
+                while (i < readData.length)
+                {
+                    if (readData[i] == 'c' && readData[i+1] == 'm')
+                    {
+                        i=i+3;
+                        break;
+                    }
+                    else
+                    {
+                        SensorBuffer += readData[i];
+                        i++;
+                    }
+                }
+                USSensor[SensCounter] = SensorBuffer;
+                //console.log(SensCounter + ' ' + USSensor[SensCounter]);
+                SensCounter++;
+                SensorBuffer = '';
+            }
+        }
+        readData = readData.substring(0,readData.length-1);
+        //console.log(readData);
+        readData = '';
+      }
+    });
+    serialPort.write("ls\n", function(err, results) {
+      console.log('err ' + err);
+      console.log('results ' + results);
+    });
+  }
+});
 
 var five = require("johnny-five");
 var board = new five.Board();
@@ -57,360 +134,106 @@ board.on("ready", function() {
     this.digitalWrite(SolenoidPin, 0);          // Solenoid must be DOWN
 
     
-    this.digitalRead(LeftEncPin1, function(value) { // LEFT funkcija se aktivira le, kadar se spremeni stanje; sicer bi bilo 1M čitanj na sekundo
-        if (secondLeftFlag1 == value) { // ta del rabimo, da se ne zgodi, da nam ob vklopu, ko kolesa mirujejo digitalRead prebere 1 - kolo sicer miruje (enko vedno prebre) in bi nato narobe preračunali frekvenco 1/0.5=2 V resnici kolo miruje. Prvi preračun lahko naredimo le, ko se pojavi naslednja vrednost
-        }
-        else
+    this.digitalRead(LeftEncPin1, function(value) 
+    { // LEFT funkcija se aktivira le, kadar se spremeni stanje; sicer bi bilo 1M čitanj na sekundo
+        if (secondLeftFlag1 != value)
         {
-            console.log("Pin LeftEncPin1 active " + Date.now() + " " + value + " " + secondLeftFlag1);
+            //console.log("   Pin LeftEncPin1 active " + Date.now() + " " + value + " " + secondLeftFlag1);
             secondLeftFlag1 = value;
-            //console.log("Code on pin 22 active");
-            if(NumLastMeasuresLeft < 3)
+            LeftLastMeasures.push(1);
+            timesArrayLeft.push(Date.now());
+            if (timesArrayLeft.length > FrequencyAveInterval)
             {
-                LeftLastMeasures.unshift(1);
-                LeftLastTimes.unshift(Date.now());
-                NumLastMeasuresLeft++;
-                LeftLastIntervals.push(0);
-                timesArrayLeft.push(Date.now());
+                LeftLastMeasures.shift();
+                timesArrayLeft.shift();
             }
-            else
-            {
-                LeftLastMeasures.pop();
-                LeftLastMeasures.unshift(1);
-                LeftLastTimes.pop();
-                LeftLastTimes.unshift(Date.now());
-                //console.log("LeftLastMeasures pin 1 " + LeftLastMeasures[0] + LeftLastMeasures[1] + LeftLastMeasures[2]);
-                if(LeftLastMeasures[0] == 1 && LeftLastMeasures[1] == 2 && LeftLastMeasures[2] == 3
-                || LeftLastMeasures[0] == 2 && LeftLastMeasures[1] == 3 && LeftLastMeasures[2] == 1
-                || LeftLastMeasures[0] == 3 && LeftLastMeasures[1] == 1 && LeftLastMeasures[2] == 2)
-                {
-                    LeftLastIntervals.push(LeftLastTimes[0] - LeftLastTimes[1]);
-                    timesArrayLeft.push(Date.now());
-                    ///console.log("FORWARD");
-                }
-                else if(LeftLastMeasures[0] == 3 && LeftLastMeasures[1] == 2 && LeftLastMeasures[2] == 1
-                || LeftLastMeasures[0] == 1 && LeftLastMeasures[1] == 3 && LeftLastMeasures[2] == 2
-                || LeftLastMeasures[0] == 2 && LeftLastMeasures[1] == 1 && LeftLastMeasures[2] == 3)
-                {
-                    LeftLastIntervals.push(LeftLastTimes[1] - LeftLastTimes[0]);
-                    timesArrayLeft.push(Date.now());
-                    //console.log("BACKWARD");
-                }
-                else
-                {
-                    LeftLastIntervals.push(0);
-                    timesArrayLeft.push(Date.now());
-                    //console.log("STOP");
-                }
-            }
-                    
-            //timesArrayLeft.push(Date.now());
-            //if (refreshClientGui == 1) {
-            //    socket.emit("klientBeri1", {"vrednost": value, "cas": timesArrayLeft[timesArrayLeft.length - 1]});
-            //}
         }
-        
-        //socket.emit("sporociloKlientu", "Flag 22 ->" + secondLeftFlag1);
-        
     });
     
-    this.digitalRead(LeftEncPin2, function(value) { // LEFT funkcija se aktivira le, kadar se spremeni stanje; sicer bi bilo 1M čitanj na sekundo
-        
-        if (secondLeftFlag2 == value) { // ta del rabimo, da se ne zgodi, da nam ob vklopu, ko kolesa mirujejo digitalRead prebere 1 - kolo sicer miruje (enko vedno prebre) in bi nato narobe preračunali frekvenco 1/0.5=2 V resnici kolo miruje. Prvi preračun lahko naredimo le, ko se pojavi naslednja vrednost
-            //secondLeftFlag2++;
-        }
-        else
+    this.digitalRead(LeftEncPin2, function(value) 
+    { // LEFT funkcija se aktivira le, kadar se spremeni stanje; sicer bi bilo 1M čitanj na sekundo
+        if (secondLeftFlag2 != value)
         {
-            console.log("       Pin LeftEncPin2 active " + Date.now() + " " + value + " " + secondLeftFlag2);
+            //console.log("           Pin LeftEncPin2 active " + Date.now() + " " + value + " " + secondLeftFlag2);
             secondLeftFlag2 = value;
-            //console.log("       Code on pin 24 active");
-            if(NumLastMeasuresLeft < 3)
+            LeftLastMeasures.push(2);
+            timesArrayLeft.push(Date.now());
+            if (timesArrayLeft.length > FrequencyAveInterval)
             {
-                LeftLastMeasures.unshift(2);
-                LeftLastTimes.unshift(Date.now());
-                NumLastMeasuresLeft++;
-                LeftLastIntervals.push(0);
-                timesArrayLeft.push(Date.now());
+                LeftLastMeasures.shift();
+                timesArrayLeft.shift();
             }
-            else
-            {
-                LeftLastMeasures.pop();
-                LeftLastMeasures.unshift(2);
-                LeftLastTimes.pop();
-                LeftLastTimes.unshift(Date.now());
-                //console.log("LeftLastMeasures pin 2 " + LeftLastMeasures[0] + LeftLastMeasures[1] + LeftLastMeasures[2]);
-                if(LeftLastMeasures[0] == 1 && LeftLastMeasures[1] == 2 && LeftLastMeasures[2] == 3
-                || LeftLastMeasures[0] == 2 && LeftLastMeasures[1] == 3 && LeftLastMeasures[2] == 1
-                || LeftLastMeasures[0] == 3 && LeftLastMeasures[1] == 1 && LeftLastMeasures[2] == 2)
-                {
-                    LeftLastIntervals.push(LeftLastTimes[0] - LeftLastTimes[1]);
-                    timesArrayLeft.push(Date.now());
-                    ///console.log("FORWARD");
-                }
-                else if(LeftLastMeasures[0] == 3 && LeftLastMeasures[1] == 2 && LeftLastMeasures[2] == 1
-                || LeftLastMeasures[0] == 1 && LeftLastMeasures[1] == 3 && LeftLastMeasures[2] == 2
-                || LeftLastMeasures[0] == 2 && LeftLastMeasures[1] == 1 && LeftLastMeasures[2] == 3)
-                {
-                    LeftLastIntervals.push(LeftLastTimes[1] - LeftLastTimes[0]);
-                    timesArrayLeft.push(Date.now());
-                    //console.log("BACKWARD");
-                }
-                else
-                {
-                    LeftLastIntervals.push(0);
-                    timesArrayLeft.push(Date.now());
-                    //console.log("STOP");
-                }
-            }
-                    
-            //timesArrayLeft.push(Date.now());
-            //if (refreshClientGui == 1) {
-            //    socket.emit("klientBeri1", {"vrednost": value, "cas": timesArrayLeft[timesArrayLeft.length - 1]});
-            //}
         }
-        
-        //socket.emit("sporociloKlientu", "Flag 24 ->" + secondLeftFlag2);
-        
     });
     
-    this.digitalRead(LeftEncPin3, function(value) { // LEFT funkcija se aktivira le, kadar se spremeni stanje; sicer bi bilo 1M čitanj na sekundo
-        
-        if (secondLeftFlag3 == value) { // ta del rabimo, da se ne zgodi, da nam ob vklopu, ko kolesa mirujejo digitalRead prebere 1 - kolo sicer miruje (enko vedno prebre) in bi nato narobe preračunali frekvenco 1/0.5=2 V resnici kolo miruje. Prvi preračun lahko naredimo le, ko se pojavi naslednja vrednost
-            //secondLeftFlag3++;
-        }
-        else
+    this.digitalRead(LeftEncPin3, function(value) 
+    { // LEFT funkcija se aktivira le, kadar se spremeni stanje; sicer bi bilo 1M čitanj na sekundo
+        if (secondLeftFlag3 != value)
         {
-            console.log("               Pin LeftEncPin3 active " + Date.now() + " " + value + " " + secondLeftFlag3);
+            //console.log("                   Pin LeftEncPin3 active " + Date.now() + " " + value + " " + secondLeftFlag3);
             secondLeftFlag3 = value;
-            //console.log("               Code on pin 26 active");
-            if(NumLastMeasuresLeft < 3)
+            LeftLastMeasures.push(3);
+            timesArrayLeft.push(Date.now());
+            if (timesArrayLeft.length > FrequencyAveInterval)
             {
-                LeftLastMeasures.unshift(3);
-                LeftLastTimes.unshift(Date.now());
-                NumLastMeasuresLeft++;
-                LeftLastIntervals.push(0);
-                timesArrayLeft.push(Date.now());
+                LeftLastMeasures.shift();
+                timesArrayLeft.shift();
             }
-            else
-            {
-                LeftLastMeasures.pop();
-                LeftLastMeasures.unshift(3);
-                LeftLastTimes.pop();
-                LeftLastTimes.unshift(Date.now());
-                //console.log("LeftLastMeasures pin 3 " + LeftLastMeasures[0] + LeftLastMeasures[1] + LeftLastMeasures[2]);
-                if(LeftLastMeasures[0] == 1 && LeftLastMeasures[1] == 2 && LeftLastMeasures[2] == 3
-                || LeftLastMeasures[0] == 2 && LeftLastMeasures[1] == 3 && LeftLastMeasures[2] == 1
-                || LeftLastMeasures[0] == 3 && LeftLastMeasures[1] == 1 && LeftLastMeasures[2] == 2)
-                {
-                    LeftLastIntervals.push(LeftLastTimes[0] - LeftLastTimes[1]);
-                    timesArrayLeft.push(Date.now());
-                    ///console.log("FORWARD");
-                }
-                else if(LeftLastMeasures[0] == 3 && LeftLastMeasures[1] == 2 && LeftLastMeasures[2] == 1
-                || LeftLastMeasures[0] == 1 && LeftLastMeasures[1] == 3 && LeftLastMeasures[2] == 2
-                || LeftLastMeasures[0] == 2 && LeftLastMeasures[1] == 1 && LeftLastMeasures[2] == 3)
-                {
-                    LeftLastIntervals.push(LeftLastTimes[1] - LeftLastTimes[0]);
-                    timesArrayLeft.push(Date.now());
-                    //console.log("BACKWARD");
-                }
-                else
-                {
-                    LeftLastIntervals.push(0);
-                    timesArrayLeft.push(Date.now());
-                    //console.log("STOP");
-                }
-            }
-                    
-            //timesArrayLeft.push(Date.now());
-            //if (refreshClientGui == 1) {
-            //    socket.emit("klientBeri1", {"vrednost": value, "cas": timesArrayLeft[timesArrayLeft.length - 1]});
-            //}
         }
-        
-        //socket.emit("sporociloKlientu", "Flag 26 ->" + secondLeftFlag3);
-        
     });
     
     
-    this.digitalRead(RightEncPin1, function(value) { // RIGHT funkcija se aktivira le, kadar se spremeni stanje; sicer bi bilo 1M čitanj na sekundo
-        
-        if (secondRightFlag1 == value) { // ta del rabimo, da se ne zgodi, da nam ob vklopu, ko kolesa mirujejo digitalRead prebere 1 - kolo sicer miruje (enko vedno prebre) in bi nato narobe preračunali frekvenco 1/0.5=2 V resnici kolo miruje. Prvi preračun lahko naredimo le, ko se pojavi naslednja vrednost
-            //secondRightFlag1++;
-        }
-        else
+    this.digitalRead(RightEncPin1, function(value) 
+    { // RIGHT funkcija se aktivira le, kadar se spremeni stanje; sicer bi bilo 1M čitanj na sekundo
+        if (secondRightFlag1 != value) 
         {
-            console.log("Pin RightEncPin1 active " + Date.now() + " " + value + " " + secondRightFlag1);
+            //console.log("Pin RightEncPin1 active " + Date.now() + " " + value + " " + secondRightFlag1);
             secondRightFlag1 = value;
-            //console.log("Code on pin 22 active");
-            if(NumLastMeasuresRight < 3)
+            RightLastMeasures.push(1);
+            timesArrayRight.push(Date.now());
+            if (timesArrayRight.length > FrequencyAveInterval)
             {
-                RightLastMeasures.unshift(1);
-                RightLastTimes.unshift(Date.now());
-                NumLastMeasuresRight++;
-                RightLastIntervals.push(0);
-                timesArrayRight.push(Date.now());
+                RightLastMeasures.shift();
+                timesArrayRight.shift();
             }
-            else
-            {
-                RightLastMeasures.pop();
-                RightLastMeasures.unshift(1);
-                RightLastTimes.pop();
-                RightLastTimes.unshift(Date.now());
-                //console.log("RightLastMeasures pin 1 " + RightLastMeasures[0] + RightLastMeasures[1] + RightLastMeasures[2]);
-                if(RightLastMeasures[0] == 1 && RightLastMeasures[1] == 2 && RightLastMeasures[2] == 3
-                || RightLastMeasures[0] == 2 && RightLastMeasures[1] == 3 && RightLastMeasures[2] == 1
-                || RightLastMeasures[0] == 3 && RightLastMeasures[1] == 1 && RightLastMeasures[2] == 2)
-                {
-                    RightLastIntervals.push(RightLastTimes[0] - RightLastTimes[1]);
-                    timesArrayRight.push(Date.now());
-                    ///console.log("FORWARD");
-                }
-                else if(RightLastMeasures[0] == 3 && RightLastMeasures[1] == 2 && RightLastMeasures[2] == 1
-                || RightLastMeasures[0] == 1 && RightLastMeasures[1] == 3 && RightLastMeasures[2] == 2
-                || RightLastMeasures[0] == 2 && RightLastMeasures[1] == 1 && RightLastMeasures[2] == 3)
-                {
-                    RightLastIntervals.push(RightLastTimes[1] - RightLastTimes[0]);
-                    timesArrayRight.push(Date.now());
-                    //console.log("BACKWARD");
-                }
-                else
-                {
-                    RightLastIntervals.push(0);
-                    timesArrayRight.push(Date.now());
-                    //console.log("STOP");
-                }
-            }
-                    
-            //timesArrayRight.push(Date.now());
-            //if (refreshClientGui == 1) {
-            //    socket.emit("klientBeri1", {"vrednost": value, "cas": timesArrayRight[timesArrayRight.length - 1]});
-            //}
         }
-        
-        //socket.emit("sporociloKlientu", "Flag 22 ->" + secondRightFlag1);
-        
     });
     
-    this.digitalRead(RightEncPin2, function(value) { // Right funkcija se aktivira le, kadar se spremeni stanje; sicer bi bilo 1M čitanj na sekundo
-        
-        if (secondRightFlag2 == value) { // ta del rabimo, da se ne zgodi, da nam ob vklopu, ko kolesa mirujejo digitalRead prebere 1 - kolo sicer miruje (enko vedno prebre) in bi nato narobe preračunali frekvenco 1/0.5=2 V resnici kolo miruje. Prvi preračun lahko naredimo le, ko se pojavi naslednja vrednost
-            //secondRightFlag2++;
-        }
-        else
+    this.digitalRead(RightEncPin2, function(value) 
+    { // RIGHT funkcija se aktivira le, kadar se spremeni stanje; sicer bi bilo 1M čitanj na sekundo
+        if (secondRightFlag2 != value) 
         {
-            console.log("       Pin RightEncPin2 active " + Date.now() + " " + value + " " + secondRightFlag2);
+            //console.log("   Pin RightEncPin2 active " + Date.now() + " " + value + " " + secondRightFlag2);
             secondRightFlag2 = value;
-            //console.log("       Code on pin 24 active");
-            if(NumLastMeasuresRight < 3)
+            RightLastMeasures.push(2);
+            timesArrayRight.push(Date.now());
+            if (timesArrayRight.length > FrequencyAveInterval)
             {
-                RightLastMeasures.unshift(2);
-                RightLastTimes.unshift(Date.now());
-                NumLastMeasuresRight++;
-                RightLastIntervals.push(0);
-                timesArrayRight.push(Date.now());
+                RightLastMeasures.shift();
+                timesArrayRight.shift();
             }
-            else
-            {
-                RightLastMeasures.pop();
-                RightLastMeasures.unshift(2);
-                RightLastTimes.pop();
-                RightLastTimes.unshift(Date.now());
-                //console.log("RightLastMeasures pin 2 " + RightLastMeasures[0] + RightLastMeasures[1] + RightLastMeasures[2]);
-                if(RightLastMeasures[0] == 1 && RightLastMeasures[1] == 2 && RightLastMeasures[2] == 3
-                || RightLastMeasures[0] == 2 && RightLastMeasures[1] == 3 && RightLastMeasures[2] == 1
-                || RightLastMeasures[0] == 3 && RightLastMeasures[1] == 1 && RightLastMeasures[2] == 2)
-                {
-                    RightLastIntervals.push(RightLastTimes[0] - RightLastTimes[1]);
-                    timesArrayRight.push(Date.now());
-                    ///console.log("FORWARD");
-                }
-                else if(RightLastMeasures[0] == 3 && RightLastMeasures[1] == 2 && RightLastMeasures[2] == 1
-                || RightLastMeasures[0] == 1 && RightLastMeasures[1] == 3 && RightLastMeasures[2] == 2
-                || RightLastMeasures[0] == 2 && RightLastMeasures[1] == 1 && RightLastMeasures[2] == 3)
-                {
-                    RightLastIntervals.push(RightLastTimes[1] - RightLastTimes[0]);
-                    timesArrayRight.push(Date.now());
-                    //console.log("BACKWARD");
-                }
-                else
-                {
-                    RightLastIntervals.push(0);
-                    timesArrayRight.push(Date.now());
-                    //console.log("STOP");
-                }
-            }
-                    
-            //timesArrayRight.push(Date.now());
-            //if (refreshClientGui == 1) {
-            //    socket.emit("klientBeri1", {"vrednost": value, "cas": timesArrayRight[timesArrayRight.length - 1]});
-            //}
         }
-        
-        //socket.emit("sporociloKlientu", "Flag 24 ->" + secondRightFlag2);
-        
     });
     
-    this.digitalRead(RightEncPin3, function(value) { // Right funkcija se aktivira le, kadar se spremeni stanje; sicer bi bilo 1M čitanj na sekundo
-        
-        if (secondRightFlag3 == value) { // ta del rabimo, da se ne zgodi, da nam ob vklopu, ko kolesa mirujejo digitalRead prebere 1 - kolo sicer miruje (enko vedno prebre) in bi nato narobe preračunali frekvenco 1/0.5=2 V resnici kolo miruje. Prvi preračun lahko naredimo le, ko se pojavi naslednja vrednost
-            //secondRightFlag3++;
-        }
-        else
+    this.digitalRead(RightEncPin3, function(value) 
+    { // Right funkcija se aktivira le, kadar se spremeni stanje; sicer bi bilo 1M čitanj na sekundo
+        if (secondRightFlag3 != value) 
         {
-            console.log("               Pin RightEncPin3 active " + Date.now() + " " + value + " " + secondRightFlag3);
+            //console.log("       Pin RightEncPin3 active " + Date.now() + " " + value + " " + secondRightFlag3);
             secondRightFlag3 = value;
-            //console.log("               Code on pin 26 active");
-            if(NumLastMeasuresRight < 3)
+            RightLastMeasures.push(3);
+            timesArrayRight.push(Date.now());
+            if (timesArrayRight.length > FrequencyAveInterval)
             {
-                RightLastMeasures.unshift(3);
-                RightLastTimes.unshift(Date.now());
-                NumLastMeasuresRight++;
-                RightLastIntervals.push(0);
-                timesArrayRight.push(Date.now());
+                RightLastMeasures.shift();
+                timesArrayRight.shift();
             }
-            else
-            {
-                RightLastMeasures.pop();
-                RightLastMeasures.unshift(3);
-                RightLastTimes.pop();
-                RightLastTimes.unshift(Date.now());
-                //console.log("RightLastMeasures pin 3 " + RightLastMeasures[0] + RightLastMeasures[1] + RightLastMeasures[2]);
-                if(RightLastMeasures[0] == 1 && RightLastMeasures[1] == 2 && RightLastMeasures[2] == 3
-                || RightLastMeasures[0] == 2 && RightLastMeasures[1] == 3 && RightLastMeasures[2] == 1
-                || RightLastMeasures[0] == 3 && RightLastMeasures[1] == 1 && RightLastMeasures[2] == 2)
-                {
-                    RightLastIntervals.push(RightLastTimes[0] - RightLastTimes[1]);
-                    timesArrayRight.push(Date.now());
-                    ///console.log("FORWARD");
-                }
-                else if(RightLastMeasures[0] == 3 && RightLastMeasures[1] == 2 && RightLastMeasures[2] == 1
-                || RightLastMeasures[0] == 1 && RightLastMeasures[1] == 3 && RightLastMeasures[2] == 2
-                || RightLastMeasures[0] == 2 && RightLastMeasures[1] == 1 && RightLastMeasures[2] == 3)
-                {
-                    RightLastIntervals.push(RightLastTimes[1] - RightLastTimes[0]);
-                    timesArrayRight.push(Date.now());
-                    //console.log("BACKWARD");
-                }
-                else
-                {
-                    RightLastIntervals.push(0);
-                    timesArrayRight.push(Date.now());
-                    //console.log("STOP");
-                }
-            }
-                    
-            //timesArrayRight.push(Date.now());
-            //if (refreshClientGui == 1) {
-            //    socket.emit("klientBeri1", {"vrednost": value, "cas": timesArrayRight[timesArrayRight.length - 1]});
-            //}
         }
-        
-        //socket.emit("sporociloKlientu", "Flag 26 ->" + secondRightFlag3);
-        
     });
 
     ArduinoStarted = true;
+	//SetPWMLeft(30);
+	//SetPWMRight(30);
 });
 
 var fs  = require("fs");
@@ -424,7 +247,7 @@ var https = require("https").createServer(options, handler) // tu je pomemben ar
   , io  = require("socket.io").listen(https, { log: false })
   , url = require("url");
 
-send404 = function(res) {
+var send404 = function(res) {
     res.writeHead(404);
     res.write("404");
     res.end();
@@ -438,7 +261,7 @@ send404 = function(res) {
 function handler (req, res) { // handler za "response"; ta handler "handla" le datoteko index.html
     var path = url.parse(req.url).pathname; // parsamo pot iz url-ja
     
-    switch(path) {
+    switch (path) {
     
     case ('/') : // v primeru default strani
 
@@ -453,7 +276,7 @@ function handler (req, res) { // handler za "response"; ta handler "handla" le d
     res.end(data);
     });
      
-    case('/admin') :
+    case ('/admin') :
                
     fs.readFile(__dirname + "/dcmc_admin_01.html",
     function (err, data) { // callback funkcija za branje tekstne datoteke
@@ -466,7 +289,7 @@ function handler (req, res) { // handler za "response"; ta handler "handla" le d
     res.end(data);
     });
             
-    case('/adminspeech') : // v primeru, da je v web naslovu na koncu napisano /zahvala
+    case ('/adminspeech') : // v primeru, da je v web naslovu na koncu napisano /zahvala
                
     fs.readFile(__dirname + "/dcmc_admin_speech_01.html",
     function (err, data) { // callback funkcija za branje tekstne datoteke
@@ -495,7 +318,7 @@ console.log("Uporabite (S) httpS! - Zagon sistema - Uporabite (S) httpS!"); // n
 
 var sendDataToClient = 1; // flag to send data to the client
 
-var refreshFrequency = 25; // frequency of control algorithm refresh in ms
+var refreshFrequency = 50; // frequency of control algorithm refresh in ms
 
 var STARTctrlFW = 0; // zastavica za zagon kontrolnega algortma za Naprej
 var STARTctrlBK = 0; // zastavica za zagon kontrolnega algortma za Nazaj
@@ -525,6 +348,9 @@ var PWMfw = 0; // value for pin forward (pin 5)
 var PWMbk = 0; // falue for pin backward (pin 6)
 var PWMleft = 0; // value for pin left (pin 9)
 var PWMright = 0; // value for pin right (pin 10)
+
+var FuzzyPWMleft = 0;
+var FuzzyPWMright = 0;
 
 var refreshClientGui = 1; // flag for refreshing values in client GUI
 
@@ -585,112 +411,497 @@ var numberOfCountsRight;
 var timeIntervalLeft;
 var timeIntervalRight;
 
-//var timersound=setInterval(function(){getSound()}, 100); 
+var NFuzzyVars = 2;
+var NFuzzySets = new Array(NFuzzyVars);
+NFuzzySets[0] = 7; // var 1 = output from controller
+NFuzzySets[1] = 7; // var 0 = error = actual frequency - desired frequency
+
+var FSvalues = new Array(NFuzzyVars);
+for (var i=0;i!=NFuzzyVars;i++)
+{
+    FSvalues[i] = new Array(NFuzzySets[i]);
+    for (var j=0;j!=NFuzzySets[i];j++)
+    {
+        FSvalues[i][j] = new Array(3);
+    }
+}
+
+var NRules = 7;
+var RBase = new Array(NRules);
+for (var i=0;i!=NRules;i++)
+{
+    RBase[i] = new Array(NFuzzyVars);
+}
+
+var AlphaCut = new Array(NFuzzySets[1]); // use number of output fuzzy sets
+
+RBase[0][0] = 0;    RBase[0][1] = 0;    
+RBase[1][0] = 1;    RBase[1][1] = 1;    
+RBase[2][0] = 2;    RBase[2][1] = 2;    
+RBase[3][0] = 3;    RBase[3][1] = 3;    
+RBase[4][0] = 4;    RBase[4][1] = 4;    
+RBase[5][0] = 5;    RBase[5][1] = 5;    
+RBase[6][0] = 6;    RBase[6][1] = 6;    
+    
+FSvalues[0][0][0] = -10;
+FSvalues[0][0][1] = -10;
+FSvalues[0][0][2] = -4;
+FSvalues[0][1][0] = -10;
+FSvalues[0][1][1] = -4;
+FSvalues[0][1][2] = -1;
+FSvalues[0][2][0] = -4;
+FSvalues[0][2][1] = -1;
+FSvalues[0][2][2] = 0;
+FSvalues[0][3][0] = -1;
+FSvalues[0][3][1] = 0;
+FSvalues[0][3][2] = 1;
+FSvalues[0][4][0] = 0;
+FSvalues[0][4][1] = 1;
+FSvalues[0][4][2] = 4;
+FSvalues[0][5][0] = 1;
+FSvalues[0][5][1] = 4;
+FSvalues[0][5][2] = 10;
+FSvalues[0][6][0] = 4;
+FSvalues[0][6][1] = 10;
+FSvalues[0][6][2] = 10;
+
+FSvalues[1][0][0] = -25;
+FSvalues[1][0][1] = -25;
+FSvalues[1][0][2] = -10;
+FSvalues[1][1][0] = -25;
+FSvalues[1][1][1] = -10;
+FSvalues[1][1][2] = -2;
+FSvalues[1][2][0] = -10;
+FSvalues[1][2][1] = -2;
+FSvalues[1][2][2] = 0;
+FSvalues[1][3][0] = -2;
+FSvalues[1][3][1] = 0;
+FSvalues[1][3][2] = 2;
+FSvalues[1][4][0] = 0;
+FSvalues[1][4][1] = 2;
+FSvalues[1][4][2] = 10;
+FSvalues[1][5][0] = 2;
+FSvalues[1][5][1] = 10;
+FSvalues[1][5][2] = 25;
+FSvalues[1][6][0] = 10;
+FSvalues[1][6][1] = 25;
+FSvalues[1][6][2] = 25;
+
+function getMRfromFSvalues(value, NumOfVar, NumOfSet)
+{
+    if (NumOfSet == 0)
+    {
+        if (value < FSvalues[NumOfVar][NumOfSet][0])
+        {
+            return 1;
+        }
+        else if (value > FSvalues[NumOfVar][NumOfSet][2])
+        {
+            return 0;
+        }
+        else
+        {
+            return (FSvalues[NumOfVar][NumOfSet][2] - value) / (FSvalues[NumOfVar][NumOfSet][2] - FSvalues[NumOfVar][NumOfSet][1]);
+        }
+    }
+    else if (NumOfSet == NFuzzySets[NumOfVar] - 1)
+    {
+        if (value < FSvalues[NumOfVar][NumOfSet][0])
+        {
+            return 0;
+        }
+        else if (value > FSvalues[NumOfVar][NumOfSet][2])
+        {
+            return 1;
+        }
+        else if (value < FSvalues[NumOfVar][NumOfSet][1])
+        {
+            return (value - FSvalues[NumOfVar][NumOfSet][0]) / (FSvalues[NumOfVar][NumOfSet][1] - FSvalues[NumOfVar][NumOfSet][0]);
+        }
+    }
+    else 
+    {
+        if (value < FSvalues[NumOfVar][NumOfSet][0])
+        {
+            return 0;
+        }
+        else if (value > FSvalues[NumOfVar][NumOfSet][2])
+        {
+            return 0;
+        }
+        else if (value < FSvalues[NumOfVar][NumOfSet][1])
+        {
+            return (value - FSvalues[NumOfVar][NumOfSet][0]) / (FSvalues[NumOfVar][NumOfSet][1] - FSvalues[NumOfVar][NumOfSet][0]);
+        }
+        else
+        {
+            return (FSvalues[NumOfVar][NumOfSet][2] - value) / (FSvalues[NumOfVar][NumOfSet][2] - FSvalues[NumOfVar][NumOfSet][1]);
+        }
+    }
+}
+
+function getPWMfromFuzzyLeft(zelenaVrednostLevo,frequencyLeft)
+{
+    AlphaCut[0] = 0;
+    AlphaCut[1] = 0;
+    AlphaCut[2] = 0;
+    AlphaCut[3] = 0;
+    AlphaCut[4] = 0;
+    AlphaCut[5] = 0;
+    AlphaCut[6] = 0;
+    if (IntegralCounterLeft < SummInterval)
+    {
+        ErrorLeft.unshift(zelenaVrednostLevo - frequencyLeft);
+        IntegralCounterLeft++;
+    }
+    else
+    {
+        ErrorLeft.pop();
+        ErrorLeft.unshift(zelenaVrednostLevo - frequencyLeft);
+    }
+    var ControlValue = Array(SummInterval);
+    for (var L=0;L!=SummInterval;L++)
+    {
+        //console.log('ErrorLeft[0] = ' + ErrorLeft[0]);
+        for (var i=0;i!=NRules;i++)
+        {
+            var tempMR = 0;
+            var tempMinMR = 1;
+            for (var CurrentVar = 1;CurrentVar!=NFuzzyVars;CurrentVar++)
+            {
+                tempMR = getMRfromFSvalues(ErrorLeft[L],CurrentVar,RBase[i][CurrentVar]);
+                if (tempMR < tempMinMR)
+                    tempMinMR = tempMR;
+            }
+            AlphaCut[RBase[i][0]] = tempMinMR;
+            //console.log('AlphaCut[RBase[i][0]] = ' + AlphaCut[RBase[i][0]]);
+        }
+        var FuzzyRange = FSvalues[0][6][2] - FSvalues[0][0][0];
+        //console.log('FuzzyRange = ' + FuzzyRange);
+        var NIntervals = 100;
+        var CoordinateMassSumm = 0;
+        var MassSumm = 0;
+        for (var i=0;i!=NIntervals;i++)
+        {
+            var TempCoordinate = FSvalues[0][0][0] + FuzzyRange/NIntervals*i;
+            //console.log('TempCoordinate = ' + TempCoordinate);
+            var TempMass1 = 0;
+            var TempMass2 = 0;
+            for (var j=0;j!=NFuzzySets[0];j++)
+            {
+                TempMass2 = getMRfromFSvalues(TempCoordinate,0,j);
+                //console.log('TempMass2 = ' + TempMass2);
+                if (TempMass2 > AlphaCut[j])
+                    TempMass2 = AlphaCut[j];
+                if (TempMass2 > TempMass1)
+                    TempMass1 = TempMass2;
+            }
+            MassSumm += TempMass1;
+            CoordinateMassSumm += TempCoordinate * TempMass1;
+            //console.log('CoordinateMassSumm = ' + CoordinateMassSumm + ' ' + 'MassSumm = ' + MassSumm);
+        }
+        if (MassSumm != 0) 
+            ControlValue[L] = CoordinateMassSumm / MassSumm / 4;
+    }
+    FuzzyPWMleft = FuzzyPWMleft + ControlValue[0]*0.66 + ControlValue[1]*0.22 + ControlValue[2]*0.12;
+    
+    if (frequencyLeft == 0 && zelenaVrednostLevo == 0 && ErrorLeft[0] == 0 && ErrorLeft[1] == 0 && ErrorLeft[2] == 0 &&
+      frequencyRight == 0 && zelenaVrednostDesno == 0 && ErrorRight[0] == 0 && ErrorRight[1] == 0 && ErrorRight[2] == 0)
+    {
+        FuzzyPWMleft = 0;
+        LeftStoppedFlag = 1;
+        if (RightStoppedFlag == 1 && STARTctrl != 0)
+        {
+            STARTctrl = 0;
+            console.log("Control algorithm STOPPED");
+            SolenoidCheck();
+        }            
+    }    
+    return FuzzyPWMleft;
+}
+
+function getPWMfromFuzzyRight(zelenaVrednostDesno,frequencyRight)
+{
+    AlphaCut[0] = 0;
+    AlphaCut[1] = 0;
+    AlphaCut[2] = 0;
+    AlphaCut[3] = 0;
+    AlphaCut[4] = 0;
+    AlphaCut[5] = 0;
+    AlphaCut[6] = 0;
+    if (IntegralCounterRight < SummInterval)
+    {
+        ErrorRight.unshift(zelenaVrednostDesno - frequencyRight);
+        IntegralCounterRight++;
+    }
+    else
+    {
+        ErrorRight.pop();
+        ErrorRight.unshift(zelenaVrednostDesno - frequencyRight);
+    }
+    var ControlValue = Array(SummInterval);
+    for (var L=0;L!=SummInterval;L++)
+    {
+        //console.log('ErrorRight[0] = ' + ErrorRight[0]);
+        for (var i=0;i!=NRules;i++)
+        {
+            var tempMR = 0;
+            var tempMinMR = 1;
+            for (var CurrentVar = 1;CurrentVar!=NFuzzyVars;CurrentVar++)
+            {
+                tempMR = getMRfromFSvalues(ErrorRight[L],CurrentVar,RBase[i][CurrentVar]);
+                if (tempMR < tempMinMR)
+                    tempMinMR = tempMR;
+            }
+            AlphaCut[RBase[i][0]] = tempMinMR;
+            //console.log('AlphaCut[RBase[i][0]] = ' + AlphaCut[RBase[i][0]]);
+        }
+        var FuzzyRange = FSvalues[0][6][2] - FSvalues[0][0][0];
+        //console.log('FuzzyRange = ' + FuzzyRange);
+        var NIntervals = 100;
+        var CoordinateMassSumm = 0;
+        var MassSumm = 0;
+        for (var i=0;i!=NIntervals;i++)
+        {
+            var TempCoordinate = FSvalues[0][0][0] + FuzzyRange/NIntervals*i;
+            //console.log('TempCoordinate = ' + TempCoordinate);
+            var TempMass1 = 0;
+            var TempMass2 = 0;
+            for (var j=0;j!=NFuzzySets[0];j++)
+            {
+                TempMass2 = getMRfromFSvalues(TempCoordinate,0,j);
+                //console.log('TempMass2 = ' + TempMass2);
+                if (TempMass2 > AlphaCut[j])
+                    TempMass2 = AlphaCut[j];
+                if (TempMass2 > TempMass1)
+                    TempMass1 = TempMass2;
+            }
+            MassSumm += TempMass1;
+            CoordinateMassSumm += TempCoordinate * TempMass1;
+            //console.log('CoordinateMassSumm = ' + CoordinateMassSumm + ' ' + 'MassSumm = ' + MassSumm);
+        }
+        if (MassSumm != 0) 
+            ControlValue[L] = CoordinateMassSumm / MassSumm / 4;
+    }
+    FuzzyPWMright = FuzzyPWMright + ControlValue[0]*0.66 + ControlValue[1]*0.22 + ControlValue[2]*0.12;
+    
+    if (frequencyLeft == 0 && zelenaVrednostLevo == 0 && ErrorLeft[0] == 0 && ErrorLeft[1] == 0 && ErrorLeft[2] == 0 &&
+      frequencyRight == 0 && zelenaVrednostDesno == 0 && ErrorRight[0] == 0 && ErrorRight[1] == 0 && ErrorRight[2] == 0)
+    {
+        FuzzyPWMright = 0;
+        RightStoppedFlag = 1;
+        if (LeftStoppedFlag == 1 && STARTctrl != 0)
+        {
+            STARTctrl = 0;
+            console.log("Control algorithm STOPPED");
+            SolenoidCheck();
+        }
+    }
+    return FuzzyPWMright;
+}
+
+// var timersound=setInterval(function(){getSound()}, 100); 
 
 function countValuesAndChopArrayLeft (timesArrayLeft, timeValue, LeftLastIntervals) {
 // function counts the values in the timesArrayLeft that are less or equal to timeValue and chops them out
 // function returns chopped array and number of occurences
 // timesArrayLeft must be defined as global variable should not lose time in between    
 
-counter = 0;
-var AvgInterval = 0;
-
-for (i = 0; i < timesArrayLeft.length; i++) 
+var NumIntervals = timesArrayLeft.length;
+//console.log('NumIntervalsL = ' + NumIntervals);
+if (NumIntervals - 3 < 0)
 {
-    if (timesArrayLeft[i] <= timeValue) 
-    {
-        AvgInterval += LeftLastIntervals[i];
-        counter++;
-    }
-    else 
-    {
-        break;
-    }
-}
-    
-timesArrayLeft.splice(0, counter); // remove the values from 0, n=counter values
-LeftLastIntervals.splice(0, counter);
-  
-if(counter != 0)
-    return AvgInterval/counter;
-else
+    timesArrayLeft.splice(0, 1);
+    LeftLastMeasures.splice(0, 1);
     return 0;
-//return counter; // function returns the number of occurences of times leess or equal to timeValue    
+}
 
+for (var i=NumIntervals-1;i >=0; i--)
+{
+    //console.log(i+'\t'+LeftLastMeasures[i]);
+}
+
+for (var i=NumIntervals-3;i >= 0;i--)
+{
+    if ((LeftLastMeasures[i] == 1 && LeftLastMeasures[i+1] == 2 && LeftLastMeasures[i+2] == 3) ||
+        (LeftLastMeasures[i] == 2 && LeftLastMeasures[i+1] == 3 && LeftLastMeasures[i+2] == 1) ||
+        (LeftLastMeasures[i] == 3 && LeftLastMeasures[i+1] == 1 && LeftLastMeasures[i+2] == 2))
+        {
+            if (i == NumIntervals-3)
+                LeftLastIntervals[i+1] = timesArrayLeft[i+2] - timesArrayLeft[i+1];
+            LeftLastIntervals[i] = timesArrayLeft[i+1] - timesArrayLeft[i];
+        }
+    else 
+    if ((LeftLastMeasures[i] == 3 && LeftLastMeasures[i+1] == 2 && LeftLastMeasures[i+2] == 1) ||
+        (LeftLastMeasures[i] == 2 && LeftLastMeasures[i+1] == 1 && LeftLastMeasures[i+2] == 3) ||
+        (LeftLastMeasures[i] == 1 && LeftLastMeasures[i+1] == 3 && LeftLastMeasures[i+2] == 2))
+        {
+            if (i == NumIntervals-3)
+                LeftLastIntervals[i+1] = timesArrayLeft[i+1] - timesArrayLeft[i+2];
+            LeftLastIntervals[i] = timesArrayLeft[i] - timesArrayLeft[i+1];
+        }
+    else
+        {
+            if (i == NumIntervals-3)
+                LeftLastIntervals[i+1] = 0;
+            LeftLastIntervals[i] = 0;
+        }
+}
+
+timesArrayLeft.splice(0, 1);
+LeftLastMeasures.splice(0, 1);
+
+var Weight = 0.12;
+var AvgInterval = LeftLastIntervals[NumIntervals-2];
+for (var i = NumIntervals-3; i >= 0; i--) 
+{
+    AvgInterval = AvgInterval*(1.0-Weight) + LeftLastIntervals[i]*Weight;
+    //console.log('LeftLastIntervals[' + i + '] = ' + LeftLastIntervals[i] + '\t' + AvgInterval);
+}
+return -AvgInterval;
+
+    
 }
 
 function countValuesAndChopArrayRight (timesArrayRight, timeValue, RightLastIntervals) {
 // function counts the values in the timesArrayRight that are less or equal to timeValue and chops them out
 // function returns chopped array and number of occurences
 // timesArrayRight must be defined as global variable should not lose time in between    
-
-counter = 0;
-var AvgInterval = 0;
-
-for (i = 0; i < timesArrayRight.length; i++) 
+var NumIntervals = timesArrayRight.length;
+//console.log('NumIntervalsR = ' + NumIntervals);
+if (NumIntervals - 3 < 0)
 {
-    if (timesArrayRight[i] <= timeValue) 
-    {
-        AvgInterval += RightLastIntervals[i];
-        counter++;
-    }
-    else 
-    {
-        break;
-    }
-}
-    
-timesArrayRight.splice(0, counter); // remove the values from 0, n=counter values
-RightLastIntervals.splice(0, counter);
-  
-if(counter != 0)
-    return AvgInterval/counter;
-else
+    timesArrayRight.splice(0, 1);
+    RightLastMeasures.splice(0, 1);
     return 0;
+}
+
+for (var i=NumIntervals-3;i >= 0;i--)
+{
+    if ((RightLastMeasures[i] == 1 && RightLastMeasures[i+1] == 2 && RightLastMeasures[i+2] == 3) ||
+        (RightLastMeasures[i] == 2 && RightLastMeasures[i+1] == 3 && RightLastMeasures[i+2] == 1) ||
+        (RightLastMeasures[i] == 3 && RightLastMeasures[i+1] == 1 && RightLastMeasures[i+2] == 2))
+        {
+            if (i == NumIntervals-3)
+                RightLastIntervals[i+1] = timesArrayRight[i+2] - timesArrayRight[i+1];
+            RightLastIntervals[i] = timesArrayRight[i+1] - timesArrayRight[i];
+        }
+    else 
+    if ((RightLastMeasures[i] == 3 && RightLastMeasures[i+1] == 2 && RightLastMeasures[i+2] == 1) ||
+        (RightLastMeasures[i] == 2 && RightLastMeasures[i+1] == 1 && RightLastMeasures[i+2] == 3) ||
+        (RightLastMeasures[i] == 1 && RightLastMeasures[i+1] == 3 && RightLastMeasures[i+2] == 2))
+        {
+            if (i == NumIntervals-3)
+                RightLastIntervals[i+1] = timesArrayRight[i+1] - timesArrayRight[i+2];
+            RightLastIntervals[i] = timesArrayRight[i] - timesArrayRight[i+1];
+        }
+    else
+        {
+            if (i == NumIntervals-3)
+                RightLastIntervals[i+1] = 0;
+            RightLastIntervals[i] = 0;
+        }
+}
+
+timesArrayRight.splice(0, 1);
+RightLastMeasures.splice(0, 1);
+
+var Weight = 0.12;
+var AvgInterval = RightLastIntervals[NumIntervals-2];
+for (var i = NumIntervals-3; i >= 0; i--) 
+{
+    AvgInterval = AvgInterval*(1.0-Weight) + RightLastIntervals[i]*Weight;
+    //console.log('RightLastIntervals[' + i + '] = ' + RightLastIntervals[i] + '\t' + AvgInterval);
+}
+return -AvgInterval;
+
     
 }
+
+var PreviousDirPinValueLeft = -1;
+var PreviousDirPinValueRight = -1;
 
 function SetPWMLeft(PWMtoSet)   // Change DIR pin depending on PWM sign + use upperLimitPWM
 {
-    if(PWMtoSet > upperLimitPWM)
+    if (PWMtoSet > upperLimitPWM)
         PWMtoSet = upperLimitPWM;
-    if(PWMtoSet < -upperLimitPWM)
+    if (PWMtoSet < -upperLimitPWM)
         PWMtoSet = -upperLimitPWM;
     //console.log("PWMleft = " + PWMleft);
-    if(PWMtoSet < 0)
+    if (PWMtoSet < 0)
     {
-        board.digitalWrite(LeftDirectionPin, 0);
+	if (PreviousDirPinValueLeft == -1)
+	{
+		PreviousDirPinValueLeft = 0;
+		board.digitalWrite(LeftDirectionPin, 0);
+	}
+	else if (PreviousDirPinValueLeft == 1)
+	{
+		PreviousDirPinValueLeft = 0;
+		board.digitalWrite(LeftDirectionPin, 0);
+	}    
+//	board.digitalWrite(LeftDirectionPin, 0);    
         board.analogWrite(LeftPWMPin, -PWMtoSet);
     }
     else
     {
-        board.digitalWrite(LeftDirectionPin, 1);
+	if (PreviousDirPinValueLeft == -1)
+	{
+		PreviousDirPinValueLeft = 1;
+		board.digitalWrite(LeftDirectionPin, 1);
+	}
+	else if (PreviousDirPinValueLeft == 0)
+	{
+		PreviousDirPinValueLeft = 1;
+		board.digitalWrite(LeftDirectionPin, 1);
+	}   
+//	board.digitalWrite(LeftDirectionPin, 1);
         board.analogWrite(LeftPWMPin, PWMtoSet);
     }
 }
 
 function SetPWMRight(PWMtoSet) // Change DIR pin depending on PWM sign + use upperLimitPWM
 {
-    if(PWMtoSet > upperLimitPWM)
+    if (PWMtoSet > upperLimitPWM)
         PWMtoSet = upperLimitPWM;
-    if(PWMtoSet < -upperLimitPWM)
+    if (PWMtoSet < -upperLimitPWM)
         PWMtoSet = -upperLimitPWM;
     //console.log("PWMright = " + PWMright);
-    if(PWMtoSet < 0)
+    if (PWMtoSet < 0)
     {
-        board.digitalWrite(RightDirectionPin, 0);
+	if (PreviousDirPinValueRight == -1)
+	{
+		PreviousDirPinValueRight = 0;
+		board.digitalWrite(RightDirectionPin, 0);
+	}
+	else if (PreviousDirPinValueRight == 1)
+	{
+		PreviousDirPinValueRight = 0;
+		board.digitalWrite(RightDirectionPin, 0);
+	}  
+//        board.digitalWrite(RightDirectionPin, 0);
         board.analogWrite(RightPWMPin, -PWMtoSet);
     }
     else
     {
-        board.digitalWrite(RightDirectionPin, 1);
+	if (PreviousDirPinValueRight == -1)
+	{
+		PreviousDirPinValueRight = 1;
+		board.digitalWrite(RightDirectionPin, 1);
+	}
+	else if (PreviousDirPinValueRight == 0)
+	{
+		PreviousDirPinValueRight = 1;
+		board.digitalWrite(RightDirectionPin, 1);
+	}  
+//        board.digitalWrite(RightDirectionPin, 1);
         board.analogWrite(RightPWMPin, PWMtoSet);
     }
 }
 
 function SolenoidDown()
 {
-    if(StateNotChanged)                         // If we did not decide to drive in the previous 1 sec
+    if (StateNotChanged)                         // If we did not decide to drive in the previous 1 sec
     {
         board.digitalWrite(SolenoidPin, 0);     // Than trigger solenoid DOWN
         console.log("SOLENOID DOWN!");
@@ -699,9 +910,9 @@ function SolenoidDown()
 
 function SolenoidCheck()
 {
-    if(zelenaVrednostDesno != 0 || zelenaVrednostLevo != 0) // If ANY of the wheels MUST go...
+    if (zelenaVrednostDesno != 0 || zelenaVrednostLevo != 0) // If ANY of the wheels MUST go...
     {
-        if(StateNotChanged == 1)
+        if (StateNotChanged == 1)
         {
             LeftStoppedFlag = 0;
             RightStoppedFlag = 0;
@@ -712,20 +923,20 @@ function SolenoidCheck()
     }
     else
     {
-        if(frequencyLeft == 0 && zelenaVrednostLevo == 0 && ErrorLeft[0] == 0 && ErrorLeft[1] == 0 && ErrorLeft[2] == 0 &&
+        if (frequencyLeft == 0 && zelenaVrednostLevo == 0 && ErrorLeft[0] == 0 && ErrorLeft[1] == 0 && ErrorLeft[2] == 0 &&
            frequencyRight == 0 && zelenaVrednostDesno == 0 && ErrorRight[0] == 0 && ErrorRight[1] == 0 && ErrorRight[2] == 0 && 
            StateNotChanged == 0) // If we are on a stop and drived before
         {
             StateNotChanged = 1;                // Remember that we stopped
             console.log("SOLENOID TIMER SET!");
-            TimeoutSolenoid = setTimeout(SolenoidDown, 1000);    // And check again in 1 sec if something changed
+            var TimeoutSolenoid = setTimeout(SolenoidDown, 1000);    // And check again in 1 sec if something changed
         }        
     }
 }
 
 function GetPWMfromPIDLeft(zelenaVrednostLevo,frequencyLeft)
 {
-    if(IntegralCounterLeft < SummInterval)
+    if (IntegralCounterLeft < SummInterval)
     {
         ErrorLeft.unshift(zelenaVrednostLevo - frequencyLeft);
         IntegralCounterLeft++;
@@ -735,11 +946,11 @@ function GetPWMfromPIDLeft(zelenaVrednostLevo,frequencyLeft)
         ErrorLeft.pop();
         ErrorLeft.unshift(zelenaVrednostLevo - frequencyLeft);
     }
-    if(IntegralCounterLeft == 1)
+    if (IntegralCounterLeft == 1)
     {
         PWMleft += KiLeft*ErrorLeft[0];
     }
-    else if(IntegralCounterLeft == 2)
+    else if (IntegralCounterLeft == 2)
     {
         PWMleft += KpLeft*(ErrorLeft[0] - ErrorLeft[1]) + KiLeft*ErrorLeft[0];
     }
@@ -747,12 +958,12 @@ function GetPWMfromPIDLeft(zelenaVrednostLevo,frequencyLeft)
     {
         PWMleft += KpLeft*(ErrorLeft[0] - ErrorLeft[1]) + KiLeft*ErrorLeft[0] + KdLeft*(ErrorLeft[0] - 2*ErrorLeft[1] + ErrorLeft[2]);
     }
-    if(frequencyLeft == 0 && zelenaVrednostLevo == 0 && ErrorLeft[0] == 0 && ErrorLeft[1] == 0 && ErrorLeft[2] == 0 &&
+    if (frequencyLeft == 0 && zelenaVrednostLevo == 0 && ErrorLeft[0] == 0 && ErrorLeft[1] == 0 && ErrorLeft[2] == 0 &&
       frequencyRight == 0 && zelenaVrednostDesno == 0 && ErrorRight[0] == 0 && ErrorRight[1] == 0 && ErrorRight[2] == 0)
     {
         PWMleft = 0;
         LeftStoppedFlag = 1;
-        if(RightStoppedFlag == 1 && STARTctrl != 0)
+        if (RightStoppedFlag == 1 && STARTctrl != 0)
         {
             STARTctrl = 0;
             console.log("Control algorithm STOPPED");
@@ -764,7 +975,7 @@ function GetPWMfromPIDLeft(zelenaVrednostLevo,frequencyLeft)
 
 function GetPWMfromPIDRight(zelenaVrednostDesno,frequencyRight)
 {
-    if(IntegralCounterRight < SummInterval)
+    if (IntegralCounterRight < SummInterval)
     {
         ErrorRight.unshift(zelenaVrednostDesno - frequencyRight);
         IntegralCounterRight++;
@@ -775,11 +986,11 @@ function GetPWMfromPIDRight(zelenaVrednostDesno,frequencyRight)
         ErrorRight.unshift(zelenaVrednostDesno - frequencyRight);
     }
     //console.log("ErrorRight[0] = " + ErrorRight[0]);        
-    if(IntegralCounterRight == 1)
+    if (IntegralCounterRight == 1)
     {
         PWMright += KiRight*ErrorRight[0];
     }
-    else if(IntegralCounterRight == 2)
+    else if (IntegralCounterRight == 2)
     {
         PWMright += KpRight*(ErrorRight[0] - ErrorRight[1]) + KiRight*ErrorRight[0];
     }
@@ -787,12 +998,12 @@ function GetPWMfromPIDRight(zelenaVrednostDesno,frequencyRight)
     {
         PWMright += KpRight*(ErrorRight[0] - ErrorRight[1]) + KiRight*ErrorRight[0] + KdRight*(ErrorRight[0] - 2*ErrorRight[1] + ErrorRight[2]);
     }
-    if(frequencyLeft == 0 && zelenaVrednostLevo == 0 && ErrorLeft[0] == 0 && ErrorLeft[1] == 0 && ErrorLeft[2] == 0 &&
+    if (frequencyLeft == 0 && zelenaVrednostLevo == 0 && ErrorLeft[0] == 0 && ErrorLeft[1] == 0 && ErrorLeft[2] == 0 &&
       frequencyRight == 0 && zelenaVrednostDesno == 0 && ErrorRight[0] == 0 && ErrorRight[1] == 0 && ErrorRight[2] == 0)
     {
         PWMright = 0;
         RightStoppedFlag = 1;
-        if(LeftStoppedFlag == 1 && STARTctrl != 0)
+        if (LeftStoppedFlag == 1 && STARTctrl != 0)
         {
             STARTctrl = 0;
             console.log("Control algorithm STOPPED");
@@ -801,7 +1012,6 @@ function GetPWMfromPIDRight(zelenaVrednostDesno,frequencyRight)
     }
     return PWMright;
 }
-
 
 function frequencyMeasureAndControlLeftRight() {
 
@@ -822,9 +1032,14 @@ function frequencyMeasureAndControlLeftRight() {
     else
         frequencyRight = 0;
 
-    if(frequencyRight != 0)
-	console.log("frequencyRight " + frequencyRight);
-    
+    var USSbuffer = '';
+    for (var i=0;i!=12;i++)
+    {
+        USSbuffer += 'S' + (i+1) + '\t' + USSensor[i] + '\t'
+        
+    }
+    //console.log(USSbuffer);
+  
     // **************************************************************************************
     // Kontrolni algoritem ZAČETEK
     // **************************************************************************************
@@ -838,10 +1053,37 @@ function frequencyMeasureAndControlLeftRight() {
         //console.log("želena Desno " + zelenaVrednostDesno);
         console.log("frequencyLeft " + frequencyLeft);
         console.log("frequencyRight " + frequencyRight);
+
         PWMleft = GetPWMfromPIDLeft(zelenaVrednostLevo,frequencyLeft);
         PWMright = GetPWMfromPIDRight(zelenaVrednostDesno,frequencyRight);
         console.log("PWM for LEFT from PID is " + PWMleft);
         console.log("PWM for RIGHT from PID is " + PWMright);
+        
+        //FuzzyPWMleft = getPWMfromFuzzyLeft(zelenaVrednostLevo,frequencyLeft);
+        //FuzzyPWMright = getPWMfromFuzzyRight(zelenaVrednostDesno,frequencyRight);
+        //console.log("       PWM for LEFT from Fuzzy is " + FuzzyPWMleft);
+        //console.log("               PWM for RIGHT from Fuzzy is " + FuzzyPWMright);
+
+        if (PWMleft > upperLimitPWM)
+            PWMleft = upperLimitPWM;
+        if (PWMleft < -upperLimitPWM)
+            PWMleft = -upperLimitPWM;
+        if (PWMright > upperLimitPWM)
+            PWMright = upperLimitPWM;
+        if (PWMright < -upperLimitPWM)
+            PWMright = -upperLimitPWM;
+        /*if (FuzzyPWMleft > upperLimitPWM)
+            FuzzyPWMleft = upperLimitPWM;
+        if (FuzzyPWMleft < -upperLimitPWM)
+            FuzzyPWMleft = -upperLimitPWM;
+        if (FuzzyPWMright > upperLimitPWM)
+            FuzzyPWMright = upperLimitPWM;
+        if (FuzzyPWMright < -upperLimitPWM)
+            FuzzyPWMright = -upperLimitPWM;*/
+            
+        //PWMleft = FuzzyPWMleft;
+        //PWMright = FuzzyPWMright;
+            
         SetPWMLeft(PWMleft);
         SetPWMRight(PWMright);    
     }
@@ -912,6 +1154,7 @@ io.sockets.on("connection", function(socket) {  // od oklepaja ( dalje imamo arg
 
         zelenaVrednostLevo = Speed; 
         zelenaVrednostDesno = Speed;
+        console.log("Command FW");
 
         if (refreshClientGui == 1) {
         socket.emit("refreshClientGUInumValues", {
@@ -936,6 +1179,7 @@ io.sockets.on("connection", function(socket) {  // od oklepaja ( dalje imamo arg
         
         zelenaVrednostLevo = -Speed; 
         zelenaVrednostDesno = -Speed;
+        console.log("Command BK");
 
         if (refreshClientGui == 1) {
         socket.emit("refreshClientGUInumValues", {
@@ -960,6 +1204,7 @@ io.sockets.on("connection", function(socket) {  // od oklepaja ( dalje imamo arg
         
         zelenaVrednostLevo = -Speed; 
         zelenaVrednostDesno = Speed;
+        console.log("Command SpinL");
 
         if (refreshClientGui == 1) {
         socket.emit("refreshClientGUInumValues", {
@@ -984,6 +1229,7 @@ socket.on("commandToArduinoSpinR", function(data) { // ko je socket ON in je pos
         
         zelenaVrednostLevo = Speed; 
         zelenaVrednostDesno = -Speed;
+        console.log("Command SpinR");
 
         if (refreshClientGui == 1) {
         socket.emit("refreshClientGUInumValues", {
@@ -1008,6 +1254,7 @@ socket.on("commandToArduinoSpinR", function(data) { // ko je socket ON in je pos
         
         zelenaVrednostLevo = Speed/2; 
         zelenaVrednostDesno = Speed;
+        console.log("Command FwLeftL5R10");
 
         if (refreshClientGui == 1) {
         socket.emit("refreshClientGUInumValues", {
@@ -1032,6 +1279,7 @@ socket.on("commandToArduinoSpinR", function(data) { // ko je socket ON in je pos
         
         zelenaVrednostLevo = Speed; 
         zelenaVrednostDesno = Speed/2;
+        console.log("Command FwRightL10R5");
 
         if (refreshClientGui == 1) {
         socket.emit("refreshClientGUInumValues", {
@@ -1056,6 +1304,7 @@ socket.on("commandToArduinoSpinR", function(data) { // ko je socket ON in je pos
         
         zelenaVrednostLevo = -Speed/2; 
         zelenaVrednostDesno = -Speed;
+        console.log("Command BkLeftL5R10");
 
         if (refreshClientGui == 1) {
         socket.emit("refreshClientGUInumValues", {
@@ -1080,6 +1329,7 @@ socket.on("commandToArduinoSpinR", function(data) { // ko je socket ON in je pos
         
         zelenaVrednostLevo = -Speed; 
         zelenaVrednostDesno = -Speed/2;
+        console.log("Command BkRightL10R5");
 
         if (refreshClientGui == 1) {
         socket.emit("refreshClientGUInumValues", {
@@ -1104,6 +1354,7 @@ socket.on("commandToArduinoSpinR", function(data) { // ko je socket ON in je pos
         
         zelenaVrednostLevo = 0; 
         zelenaVrednostDesno = 0;
+        console.log("Command STOP");
 
         if (refreshClientGui == 1) {
         socket.emit("refreshClientGUInumValues", {

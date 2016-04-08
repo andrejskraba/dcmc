@@ -10,16 +10,16 @@ Cybernetics & Decision Support Systems Laboratory ********************
 
 var firmata = require("firmata");
 
-var LeftEncPin1 = 22;
-var LeftEncPin2 = 23;
-var LeftEncPin3 = 24;
+var LeftEncPin1 = 8;
+var LeftEncPin2 = 9;
+var LeftEncPin3 = 10;
 
-var RightEncPin1 = 25;
-var RightEncPin2 = 26;
-var RightEncPin3 = 27;
+var RightEncPin1 = 11;
+var RightEncPin2 = 12;
+var RightEncPin3 = 13;
 
 var LeftPWMPin = 6;
-var RightPWMPin = 7;
+var RightPWMPin = 5;
 
 var LeftDirectionPin = 2;
 var RightDirectionPin = 4;
@@ -30,6 +30,83 @@ var SolenoidPin = 3;
 var Speed = 50;
 
 var ArduinoStarted = false;
+
+var USSensor = new Array();
+    USSensor[0] = 0;
+    USSensor[1] = 0;
+    USSensor[2] = 0;
+    USSensor[3] = 0;
+    USSensor[4] = 0;
+    USSensor[5] = 0;
+    USSensor[6] = 0;
+    USSensor[7] = 0;
+    USSensor[8] = 0;
+    USSensor[9] = 0;
+    USSensor[10] = 0;
+    USSensor[11] = 0;
+    USSensor[12] = 0;
+
+
+var SerialPort = require("serialport").SerialPort
+var serialPort = new SerialPort("/dev/ttyACM1", {
+  baudRate: 115200, 
+  dataBits: 8, 
+  parity: 'none',
+  stopBits: 1, 
+  flowControl: false
+}, false); // this is the openImmediately flag [default is true]
+
+var cleanData = ''; // var for storing the clean data (without 'A' and 'B')
+var readData = '';  // buffer storage
+
+serialPort.open(function (error) {
+  if (error) {
+    console.log('failed to open: '+error);
+  } else {
+    console.log('open');
+    serialPort.on('data', function(data) { // call back when data is received
+      readData += data.toString(); // append data to buffer
+      // if the letters 'A' and 'B' are found on the buffer then isolate what's in the middle
+      // as clean data. Then clear the buffer.
+      if (readData.indexOf('\n') >= 0) {
+        //cleanData = readData.substring(1, readData.indexOf('\n'));
+        var SensCounter = 0;
+        var SensorBuffer = '';
+        for (var i=0;i!=readData.length;i++)
+        {
+            if (readData[i] == '=')
+            {
+                i++;
+                while (i < readData.length)
+                {
+                    if (readData[i] == 'c' && readData[i+1] == 'm')
+                    {
+                        i=i+3;
+                        break;
+                    }
+                    else
+                    {
+                        SensorBuffer += readData[i];
+                        i++;
+                    }
+                }
+                USSensor[SensCounter] = SensorBuffer;
+                //console.log(SensCounter + ' ' + USSensor[SensCounter]);
+                SensCounter++;
+                SensorBuffer = '';
+            }
+        }
+        readData = readData.substring(0,readData.length-1);
+        //console.log(readData);
+        readData = '';
+      }
+    });
+    serialPort.write("ls\n", function(err, results) {
+      console.log('err ' + err);
+      console.log('results ' + results);
+    });
+  }
+});
 
 var five = require("johnny-five");
 var board = new five.Board();
@@ -62,7 +139,7 @@ board.on("ready", function() {
         }
         else
         {
-            console.log("Pin LeftEncPin1 active " + Date.now() + " " + value + " " + secondLeftFlag1);
+            //console.log("Pin LeftEncPin1 active " + Date.now() + " " + value + " " + secondLeftFlag1);
             secondLeftFlag1 = value;
             //console.log("Code on pin 22 active");
             if(NumLastMeasuresLeft < 3)
@@ -121,7 +198,7 @@ board.on("ready", function() {
         }
         else
         {
-            console.log("       Pin LeftEncPin2 active " + Date.now() + " " + value + " " + secondLeftFlag2);
+            //console.log("       Pin LeftEncPin2 active " + Date.now() + " " + value + " " + secondLeftFlag2);
             secondLeftFlag2 = value;
             //console.log("       Code on pin 24 active");
             if(NumLastMeasuresLeft < 3)
@@ -180,7 +257,7 @@ board.on("ready", function() {
         }
         else
         {
-            console.log("               Pin LeftEncPin3 active " + Date.now() + " " + value + " " + secondLeftFlag3);
+            //console.log("               Pin LeftEncPin3 active " + Date.now() + " " + value + " " + secondLeftFlag3);
             secondLeftFlag3 = value;
             //console.log("               Code on pin 26 active");
             if(NumLastMeasuresLeft < 3)
@@ -240,7 +317,7 @@ board.on("ready", function() {
         }
         else
         {
-            console.log("Pin RightEncPin1 active " + Date.now() + " " + value + " " + secondRightFlag1);
+            //console.log("Pin RightEncPin1 active " + Date.now() + " " + value + " " + secondRightFlag1);
             secondRightFlag1 = value;
             //console.log("Code on pin 22 active");
             if(NumLastMeasuresRight < 3)
@@ -299,7 +376,7 @@ board.on("ready", function() {
         }
         else
         {
-            console.log("       Pin RightEncPin2 active " + Date.now() + " " + value + " " + secondRightFlag2);
+            //console.log("       Pin RightEncPin2 active " + Date.now() + " " + value + " " + secondRightFlag2);
             secondRightFlag2 = value;
             //console.log("       Code on pin 24 active");
             if(NumLastMeasuresRight < 3)
@@ -358,7 +435,7 @@ board.on("ready", function() {
         }
         else
         {
-            console.log("               Pin RightEncPin3 active " + Date.now() + " " + value + " " + secondRightFlag3);
+            //console.log("               Pin RightEncPin3 active " + Date.now() + " " + value + " " + secondRightFlag3);
             secondRightFlag3 = value;
             //console.log("               Code on pin 26 active");
             if(NumLastMeasuresRight < 3)
@@ -411,6 +488,8 @@ board.on("ready", function() {
     });
 
     ArduinoStarted = true;
+	//SetPWMLeft(30);
+	//SetPWMRight(30);
 });
 
 var fs  = require("fs");
@@ -495,7 +574,7 @@ console.log("Uporabite (S) httpS! - Zagon sistema - Uporabite (S) httpS!"); // n
 
 var sendDataToClient = 1; // flag to send data to the client
 
-var refreshFrequency = 25; // frequency of control algorithm refresh in ms
+var refreshFrequency = 50; // frequency of control algorithm refresh in ms
 
 var STARTctrlFW = 0; // zastavica za zagon kontrolnega algortma za Naprej
 var STARTctrlBK = 0; // zastavica za zagon kontrolnega algortma za Nazaj
@@ -592,10 +671,10 @@ function countValuesAndChopArrayLeft (timesArrayLeft, timeValue, LeftLastInterva
 // function returns chopped array and number of occurences
 // timesArrayLeft must be defined as global variable should not lose time in between    
 
-counter = 0;
+var counter = 0;
 var AvgInterval = 0;
 
-for (i = 0; i < timesArrayLeft.length; i++) 
+for (var i = 0; i < timesArrayLeft.length; i++) 
 {
     if (timesArrayLeft[i] <= timeValue) 
     {
@@ -611,7 +690,7 @@ for (i = 0; i < timesArrayLeft.length; i++)
 timesArrayLeft.splice(0, counter); // remove the values from 0, n=counter values
 LeftLastIntervals.splice(0, counter);
   
-if(counter != 0)
+if (counter != 0)
     return AvgInterval/counter;
 else
     return 0;
@@ -624,10 +703,10 @@ function countValuesAndChopArrayRight (timesArrayRight, timeValue, RightLastInte
 // function returns chopped array and number of occurences
 // timesArrayRight must be defined as global variable should not lose time in between    
 
-counter = 0;
+var counter = 0;
 var AvgInterval = 0;
 
-for (i = 0; i < timesArrayRight.length; i++) 
+for (var i = 0; i < timesArrayRight.length; i++) 
 {
     if (timesArrayRight[i] <= timeValue) 
     {
@@ -643,12 +722,15 @@ for (i = 0; i < timesArrayRight.length; i++)
 timesArrayRight.splice(0, counter); // remove the values from 0, n=counter values
 RightLastIntervals.splice(0, counter);
   
-if(counter != 0)
+if (counter != 0)
     return AvgInterval/counter;
 else
     return 0;
     
 }
+
+var PreviousDirPinValueLeft = -1;
+var PreviousDirPinValueRight = -1;
 
 function SetPWMLeft(PWMtoSet)   // Change DIR pin depending on PWM sign + use upperLimitPWM
 {
@@ -659,12 +741,32 @@ function SetPWMLeft(PWMtoSet)   // Change DIR pin depending on PWM sign + use up
     //console.log("PWMleft = " + PWMleft);
     if(PWMtoSet < 0)
     {
-        board.digitalWrite(LeftDirectionPin, 0);
+	if(PreviousDirPinValueLeft == -1)
+	{
+		PreviousDirPinValueLeft = 0;
+		board.digitalWrite(LeftDirectionPin, 0);
+	}
+	else if(PreviousDirPinValueLeft == 1)
+	{
+		PreviousDirPinValueLeft = 0;
+		board.digitalWrite(LeftDirectionPin, 0);
+	}    
+//	board.digitalWrite(LeftDirectionPin, 0);    
         board.analogWrite(LeftPWMPin, -PWMtoSet);
     }
     else
     {
-        board.digitalWrite(LeftDirectionPin, 1);
+	if(PreviousDirPinValueLeft == -1)
+	{
+		PreviousDirPinValueLeft = 1;
+		board.digitalWrite(LeftDirectionPin, 1);
+	}
+	else if(PreviousDirPinValueLeft == 0)
+	{
+		PreviousDirPinValueLeft = 1;
+		board.digitalWrite(LeftDirectionPin, 1);
+	}   
+//	board.digitalWrite(LeftDirectionPin, 1);
         board.analogWrite(LeftPWMPin, PWMtoSet);
     }
 }
@@ -678,12 +780,32 @@ function SetPWMRight(PWMtoSet) // Change DIR pin depending on PWM sign + use upp
     //console.log("PWMright = " + PWMright);
     if(PWMtoSet < 0)
     {
-        board.digitalWrite(RightDirectionPin, 0);
+	if(PreviousDirPinValueRight == -1)
+	{
+		PreviousDirPinValueRight = 0;
+		board.digitalWrite(RightDirectionPin, 0);
+	}
+	else if(PreviousDirPinValueRight == 1)
+	{
+		PreviousDirPinValueRight = 0;
+		board.digitalWrite(RightDirectionPin, 0);
+	}  
+//        board.digitalWrite(RightDirectionPin, 0);
         board.analogWrite(RightPWMPin, -PWMtoSet);
     }
     else
     {
-        board.digitalWrite(RightDirectionPin, 1);
+	if(PreviousDirPinValueRight == -1)
+	{
+		PreviousDirPinValueRight = 1;
+		board.digitalWrite(RightDirectionPin, 1);
+	}
+	else if(PreviousDirPinValueRight == 0)
+	{
+		PreviousDirPinValueRight = 1;
+		board.digitalWrite(RightDirectionPin, 1);
+	}  
+//        board.digitalWrite(RightDirectionPin, 1);
         board.analogWrite(RightPWMPin, PWMtoSet);
     }
 }
@@ -822,9 +944,14 @@ function frequencyMeasureAndControlLeftRight() {
     else
         frequencyRight = 0;
 
-    if(frequencyRight != 0)
-	console.log("frequencyRight " + frequencyRight);
-    
+    var USSbuffer = '';
+    for (var i=0;i!=12;i++)
+    {
+        USSbuffer += 'S' + (i+1) + '\t' + USSensor[i] + '\t'
+        
+    }
+    console.log(USSbuffer);
+  
     // **************************************************************************************
     // Kontrolni algoritem ZAČETEK
     // **************************************************************************************
@@ -836,12 +963,20 @@ function frequencyMeasureAndControlLeftRight() {
         //socket.emit("ukazArduinu", {"stevilkaUkaza": stevilkaUkaza, "pinNo": 5, "valuePWM": 1}); // za vsak primer pin naprej postavimo na 0
         //console.log("želena Levo " + zelenaVrednostLevo);
         //console.log("želena Desno " + zelenaVrednostDesno);
-        console.log("frequencyLeft " + frequencyLeft);
-        console.log("frequencyRight " + frequencyRight);
+        //console.log("frequencyLeft " + frequencyLeft);
+        //console.log("frequencyRight " + frequencyRight);
         PWMleft = GetPWMfromPIDLeft(zelenaVrednostLevo,frequencyLeft);
         PWMright = GetPWMfromPIDRight(zelenaVrednostDesno,frequencyRight);
-        console.log("PWM for LEFT from PID is " + PWMleft);
-        console.log("PWM for RIGHT from PID is " + PWMright);
+        //console.log("PWM for LEFT from PID is " + PWMleft);
+        //console.log("PWM for RIGHT from PID is " + PWMright);
+        if (PWMleft > upperLimitPWM)
+            PWMleft = upperLimitPWM;
+        if (PWMleft < -upperLimitPWM)
+            PWMleft = -upperLimitPWM;
+        if (PWMright > upperLimitPWM)
+            PWMright = upperLimitPWM;
+        if (PWMright < -upperLimitPWM)
+            PWMright = -upperLimitPWM;
         SetPWMLeft(PWMleft);
         SetPWMRight(PWMright);    
     }

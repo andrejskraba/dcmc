@@ -10,13 +10,13 @@ Cybernetics & Decision Support Systems Laboratory ********************
 
 var firmata = require("firmata");
 
-var LeftEncPin1 = 22;
-var LeftEncPin2 = 23;
-var LeftEncPin3 = 24;
+var LeftEncPin1 = 2;
+var LeftEncPin2 = 3;
+var LeftEncPin3 = 4;
 
-var RightEncPin1 = 25;
-var RightEncPin2 = 26;
-var RightEncPin3 = 27;
+var RightEncPin1 = 5;
+var RightEncPin2 = 6;
+var RightEncPin3 = 7;
 
 var LeftPWMPin = 6;
 var RightPWMPin = 7;
@@ -31,10 +31,35 @@ var Speed = 50;
 
 var ArduinoStarted = false;
 
+/*var SerialPort = require("serialport").SerialPort;
+var five = require("johnny-five");
+var board = new five.Board({
+	port: new SerialPort(/dev/ttyACM0", {
+		baudrate : 57600,
+		buffersize: 1
+	})
+});*/
+
 var five = require("johnny-five");
 var board = new five.Board();
 
 board.on("ready", function() {
+    console.log("Priključitev na Arduino");
+    console.log("Omogočimo pine");
+    this.pinMode(SolenoidPin, five.Pin.OUTPUT);
+    this.pinMode(LeftDirectionPin, five.Pin.OUTPUT);    // LEFT digital pin to change direction
+    this.pinMode(RightDirectionPin, five.Pin.OUTPUT);   // RIGHT digital pin to change direction
+    this.pinMode(LeftPWMPin, five.Pin.PWM);             // LEFT PWM pin
+    this.pinMode(RightPWMPin, five.Pin.PWM);            // RIGHT PWM pin    
+    this.digitalWrite(SolenoidPin, 0);          	// Solenoid must be DOWN 
+    
+
+    
+});
+
+var board2 = new five.Board();
+
+board2.on("ready", function() {
     console.log("Priključitev na Arduino");
     console.log("Omogočimo pine");
     this.pinMode(LeftEncPin1, five.Pin.INPUT);  // LEFT digital pin from encoder 1
@@ -43,20 +68,13 @@ board.on("ready", function() {
     this.pinMode(RightEncPin1, five.Pin.INPUT); // RIGHT digital pin from encoder 1
     this.pinMode(RightEncPin2, five.Pin.INPUT); // RIGHT digital pin from encoder 2
     this.pinMode(RightEncPin3, five.Pin.INPUT); // RIGHT digital pin from encoder 3
-    this.pinMode(SolenoidPin, five.Pin.OUTPUT);
-    this.pinMode(LeftDirectionPin, five.Pin.OUTPUT);    // LEFT digital pin to change direction
-    this.pinMode(RightDirectionPin, five.Pin.OUTPUT);   // RIGHT digital pin to change direction
-    this.pinMode(LeftPWMPin, five.Pin.PWM);             // LEFT PWM pin
-    this.pinMode(RightPWMPin, five.Pin.PWM);            // RIGHT PWM pin    
     this.digitalWrite(LeftEncPin1, 1);          // LEFT digital pin from encoder 1
     this.digitalWrite(LeftEncPin2, 1);          // LEFT digital pin from encoder 2
     this.digitalWrite(LeftEncPin3, 1);          // LEFT digital pin from encoder 3
     this.digitalWrite(RightEncPin1, 1);         // RIGHT digital pin from encoder 1
     this.digitalWrite(RightEncPin2, 1);         // RIGHT digital pin from encoder 2
     this.digitalWrite(RightEncPin3, 1);         // RIGHT digital pin from encoder 3
-    this.digitalWrite(SolenoidPin, 0);          // Solenoid must be DOWN
 
-    
     this.digitalRead(LeftEncPin1, function(value) { // LEFT funkcija se aktivira le, kadar se spremeni stanje; sicer bi bilo 1M čitanj na sekundo
         if (secondLeftFlag1 == value) { // ta del rabimo, da se ne zgodi, da nam ob vklopu, ko kolesa mirujejo digitalRead prebere 1 - kolo sicer miruje (enko vedno prebre) in bi nato narobe preračunali frekvenco 1/0.5=2 V resnici kolo miruje. Prvi preračun lahko naredimo le, ko se pojavi naslednja vrednost
         }
@@ -409,8 +427,7 @@ board.on("ready", function() {
         //socket.emit("sporociloKlientu", "Flag 26 ->" + secondRightFlag3);
         
     });
-
-    ArduinoStarted = true;
+	ArduinoStarted = true;
 });
 
 var fs  = require("fs");
@@ -495,7 +512,7 @@ console.log("Uporabite (S) httpS! - Zagon sistema - Uporabite (S) httpS!"); // n
 
 var sendDataToClient = 1; // flag to send data to the client
 
-var refreshFrequency = 25; // frequency of control algorithm refresh in ms
+var refreshFrequency = 50; // frequency of control algorithm refresh in ms
 
 var STARTctrlFW = 0; // zastavica za zagon kontrolnega algortma za Naprej
 var STARTctrlBK = 0; // zastavica za zagon kontrolnega algortma za Nazaj

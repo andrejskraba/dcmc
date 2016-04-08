@@ -10,6 +10,12 @@ Cybernetics & Decision Support Systems Laboratory ********************
 
 var firmata = require("firmata");
 
+var cleanData = ''; // var for storing the clean data (without 'A' and 'B')
+var readData = '';  // buffer storage
+var signData = '';
+var beatData = '';
+var timeData = '';
+
 var LeftEncPin1 = 22;
 var LeftEncPin2 = 23;
 var LeftEncPin3 = 24;
@@ -26,6 +32,22 @@ var RightDirectionPin = 4;
 
 var SolenoidPin = 3;
 
+var InfRedSen1Pin = "A14";
+var InfRedSen2Pin = "A15";
+
+var InfRedSen1;
+var InfRedSen2;
+
+var Dist1;
+var Dist2;
+var Dist3;
+var Dist4;
+var Dist5;
+var Dist6;
+
+var arraySound = new Array();
+arraySound = [];
+var flushSoundArray = false;
 
 var Speed = 50;
 
@@ -55,14 +77,90 @@ board.on("ready", function() {
     this.digitalWrite(RightEncPin2, 1);         // RIGHT digital pin from encoder 2
     this.digitalWrite(RightEncPin3, 1);         // RIGHT digital pin from encoder 3
     this.digitalWrite(SolenoidPin, 0);          // Solenoid must be DOWN
-
+    /*
+    var proximity1 = new five.Proximity({
+        controller: "HCSR04",
+        pin: 34
+    });
+    
+    proximity1.on("data", function() {
+        Dist1 = this.cm;
+        //console.log("1  cm  :", this.cm);
+    });
+    
+    var proximity2 = new five.Proximity({
+        controller: "HCSR04",
+        pin: 35
+    });
+    
+    proximity2.on("data", function() {
+        Dist2 = this.cm;
+        //console.log("2  cm  :", this.cm);
+    });
+    
+    var proximity3 = new five.Proximity({
+        controller: "HCSR04",
+        pin: 36
+    });
+    
+    proximity3.on("data", function() {
+        Dist3 = this.cm;
+        //console.log("3  cm  :", this.cm);
+    });
+    
+    var proximity4 = new five.Proximity({
+        controller: "HCSR04",
+        pin: 37
+    });
+    
+    proximity4.on("data", function() {
+        Dist4 = this.cm;
+        //console.log("4  cm  :", this.cm);
+    });
+    
+    var proximity5 = new five.Proximity({
+        controller: "HCSR04",
+        pin: 38
+    });
+    
+    proximity5.on("data", function() {
+        Dist5 = this.cm;
+        //console.log("5  cm  :", this.cm);
+    });
+    
+    var proximity6 = new five.Proximity({
+        controller: "HCSR04",
+        pin: 39
+    });
+    
+    proximity6.on("data", function() {
+        Dist6 = this.cm;
+        //console.log("6  cm  :", this.cm);
+    });
+    */
+    
+    /*var SoundPin = new five.Pin("A1");
+	five.Pin.read(SoundPin, function(error, value) {
+		if(!flushSoundArray)
+			arraySound.push(value);
+		else
+		{
+			arraySound = [];
+			arraySound.push(value);
+			flushSoundArray = false;
+		}
+	});*/
+    
+    //InfRedSen1 = new five.Pin(InfRedSen1Pin);
+    //InfRedSen2 = new five.Pin(InfRedSen2Pin);
+    
     
     this.digitalRead(LeftEncPin1, function(value) { // LEFT funkcija se aktivira le, kadar se spremeni stanje; sicer bi bilo 1M čitanj na sekundo
         if (secondLeftFlag1 == value) { // ta del rabimo, da se ne zgodi, da nam ob vklopu, ko kolesa mirujejo digitalRead prebere 1 - kolo sicer miruje (enko vedno prebre) in bi nato narobe preračunali frekvenco 1/0.5=2 V resnici kolo miruje. Prvi preračun lahko naredimo le, ko se pojavi naslednja vrednost
         }
         else
         {
-            console.log("Pin LeftEncPin1 active " + Date.now() + " " + value + " " + secondLeftFlag1);
+            //console.log("Pin LeftEncPin1 active " + Date.now() + " " + value + " " + secondLeftFlag1);
             secondLeftFlag1 = value;
             //console.log("Code on pin 22 active");
             if(NumLastMeasuresLeft < 3)
@@ -121,7 +219,7 @@ board.on("ready", function() {
         }
         else
         {
-            console.log("       Pin LeftEncPin2 active " + Date.now() + " " + value + " " + secondLeftFlag2);
+            //console.log("       Pin LeftEncPin2 active " + Date.now() + " " + value + " " + secondLeftFlag2);
             secondLeftFlag2 = value;
             //console.log("       Code on pin 24 active");
             if(NumLastMeasuresLeft < 3)
@@ -180,7 +278,7 @@ board.on("ready", function() {
         }
         else
         {
-            console.log("               Pin LeftEncPin3 active " + Date.now() + " " + value + " " + secondLeftFlag3);
+            //console.log("               Pin LeftEncPin3 active " + Date.now() + " " + value + " " + secondLeftFlag3);
             secondLeftFlag3 = value;
             //console.log("               Code on pin 26 active");
             if(NumLastMeasuresLeft < 3)
@@ -240,7 +338,7 @@ board.on("ready", function() {
         }
         else
         {
-            console.log("Pin RightEncPin1 active " + Date.now() + " " + value + " " + secondRightFlag1);
+            //console.log("Pin RightEncPin1 active " + Date.now() + " " + value + " " + secondRightFlag1);
             secondRightFlag1 = value;
             //console.log("Code on pin 22 active");
             if(NumLastMeasuresRight < 3)
@@ -299,7 +397,7 @@ board.on("ready", function() {
         }
         else
         {
-            console.log("       Pin RightEncPin2 active " + Date.now() + " " + value + " " + secondRightFlag2);
+            //console.log("       Pin RightEncPin2 active " + Date.now() + " " + value + " " + secondRightFlag2);
             secondRightFlag2 = value;
             //console.log("       Code on pin 24 active");
             if(NumLastMeasuresRight < 3)
@@ -358,7 +456,7 @@ board.on("ready", function() {
         }
         else
         {
-            console.log("               Pin RightEncPin3 active " + Date.now() + " " + value + " " + secondRightFlag3);
+            //console.log("               Pin RightEncPin3 active " + Date.now() + " " + value + " " + secondRightFlag3);
             secondRightFlag3 = value;
             //console.log("               Code on pin 26 active");
             if(NumLastMeasuresRight < 3)
@@ -478,7 +576,20 @@ function handler (req, res) { // handler za "response"; ta handler "handla" le d
     res.writeHead(200);
     res.end(data);
     });        
-            
+         
+    case('/heartrate') : // v primeru, da je v web naslovu na koncu napisano /zahvala
+               
+    fs.readFile(__dirname + "/heartrate.html",
+    function (err, data) { // callback funkcija za branje tekstne datoteke
+        if (err) {
+            res.writeHead(500);
+            return res.end("Napaka pri nalaganju strani heartrate...html");
+        }
+        
+    res.writeHead(200);
+    res.end(data);
+    });  
+  
     break;    
             
     default: send404(res);
@@ -495,7 +606,7 @@ console.log("Uporabite (S) httpS! - Zagon sistema - Uporabite (S) httpS!"); // n
 
 var sendDataToClient = 1; // flag to send data to the client
 
-var refreshFrequency = 25; // frequency of control algorithm refresh in ms
+var refreshFrequency = 50; // frequency of control algorithm refresh in ms
 
 var STARTctrlFW = 0; // zastavica za zagon kontrolnega algortma za Naprej
 var STARTctrlBK = 0; // zastavica za zagon kontrolnega algortma za Nazaj
@@ -585,6 +696,38 @@ var numberOfCountsRight;
 var timeIntervalLeft;
 var timeIntervalRight;
 
+function getSound()
+{
+    var volts = 0;
+    if (ArduinoStarted)
+    {
+    	var peakToPeak = 0;
+    	var signalMin = 0;
+    	var signalMax = 0;
+    	var arrayLength = arraySound.length;
+    	for(var i=0; i<arrayLength;i++)
+    	{
+    		if(i == 0)
+    		{
+    			signalMin = arraySound[i];
+    			signalMax = arraySound[i];
+    		}
+    		if(arraySound[i] < signalMin)
+    		{
+    			signalMin = arraySound[i];
+    		}
+    		else if(arraySound[i] > signalMax)
+    		{
+    			signalMax = arraySound[i];
+    		}
+    	}
+    	flushSoundArray = true;
+    	peakToPeak = signalMax - signalMin;  // max - min = peak-peak amplitude
+    	volts = (peakToPeak * 5.0) / 1024;  // convert to volts
+    	//console.log(volts);
+    }
+    return volts;
+}
 //var timersound=setInterval(function(){getSound()}, 100); 
 
 function countValuesAndChopArrayLeft (timesArrayLeft, timeValue, LeftLastIntervals) {
@@ -802,6 +945,28 @@ function GetPWMfromPIDRight(zelenaVrednostDesno,frequencyRight)
     return PWMright;
 }
 
+var DistanceLeft;
+var DistanceRight;
+function ReadDistanceSensors()
+{
+    
+    five.Pin.read(InfRedSen1, function(error, value) {
+	var volts = value*0.0048828125; ;
+	var distance = 65*Math.pow(volts,-1.10);
+	if (distance > 200)
+		distance = 200;
+	DistanceLeft = distance;
+  	//console.log(distance);
+    });
+    five.Pin.read(InfRedSen2, function(error, value) {
+	var volts = value*0.0048828125; ;
+	var distance = 65*Math.pow(volts,-1.10);
+	if (distance > 200)
+		distance = 200;
+  	//console.log(distance);
+	DistanceRight = distance;
+    });
+}
 
 function frequencyMeasureAndControlLeftRight() {
 
@@ -822,9 +987,43 @@ function frequencyMeasureAndControlLeftRight() {
     else
         frequencyRight = 0;
 
-    if(frequencyRight != 0)
-	console.log("frequencyRight " + frequencyRight);
-    
+    if (ArduinoStarted)
+    {
+    	//ReadDistanceSensors();
+    	if (zelenaVrednostLevo > 0 && zelenaVrednostDesno > 0 && (DistanceLeft < 30 || DistanceRight < 30))
+    	{
+            console.log("Desired BOTH set to 0");
+            //console.log(DistanceLeft + " ---- " + DistanceRight);
+    	    //zelenaVrednostLevo = Speed/5;
+    	    //zelenaVrednostDesno = Speed/5;
+        }
+    	else if (zelenaVrednostLevo > 0 && DistanceLeft < 30)
+        {
+            console.log("Desired LEFT set to 0");
+            //console.log(DistanceLeft + " ---- " + DistanceRight);
+    	    //zelenaVrednostLevo = Speed/5;
+        }
+        else if (zelenaVrednostDesno > 0 && DistanceRight < 30)
+        {
+            console.log("Desired RIGHT set to 0");
+            //console.log(DistanceLeft + " ---- " + DistanceRight);
+    	    //zelenaVrednostDesno = Speed/5;
+        }
+        else 
+        {
+            //console.log(DistanceLeft + " ---- " + DistanceRight);
+        }
+        
+        //console.log(Dist1 + " " + Dist2 + " " + Dist3 + " " + Dist4 + " " + Dist5 + " " + Dist6);
+        var SoundLevel = getSound();
+        if (SoundLevel > 0.15)
+        {
+            zelenaVrednostLevo = 0;
+            zelenaVrednostDesno = 0;
+            console.log("STOP BY SOUND, LEVEL IS " + SoundLevel);
+        }
+    }
+
     // **************************************************************************************
     // Kontrolni algoritem ZAČETEK
     // **************************************************************************************
@@ -1123,6 +1322,11 @@ socket.on("commandToArduinoSpinR", function(data) { // ko je socket ON in je pos
         STARTctrl = 1; 
         
     });
+
+
+	//socket.on('disconnect', function() {
+        //socket.send('disconnected...');
+    //});
     
     
                       
