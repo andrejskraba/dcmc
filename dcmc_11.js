@@ -6,6 +6,7 @@ Cybernetics & Decision Support Systems Laboratory ********************
 @author Andrej Koložvari**********************************************
 @author Davorin Kofjač ***********************************************
 @author Radovan Stojanović *******************************************
+@author Vladimir Stanovov ********************************************
 *********************************************************************/
 
 var firmata = require("firmata");
@@ -100,6 +101,8 @@ serialPort.open(function (error) {
                 if (tempvalue == 0)
                     tempvalue = 200;
                 USSensor[SensCounter] = USSensor[SensCounter]*(1.0-SmoothingWeightUS) + tempvalue*SmoothingWeightUS;
+                if (USSensor[SensCounter].isNaN)
+                    USSensor[SensCounter].isNaN = 200;
                 //USSensor[SensCounter] = SensorBuffer;
                 //console.log(SensCounter + ' ' + USSensor[SensCounter]);
                 SensCounter++;
@@ -331,19 +334,11 @@ console.log("Uporabite (S) httpS! - Zagon sistema - Uporabite (S) httpS!"); // n
 
 var sendDataToClient = 1; // flag to send data to the client
 
-var refreshFrequency = 50; // frequency of control algorithm refresh in ms
-
-var STARTctrlFW = 0; // zastavica za zagon kontrolnega algortma za Naprej
-var STARTctrlBK = 0; // zastavica za zagon kontrolnega algortma za Nazaj
-var STARTctrlSpinL = 0; // zastavica za vklop kontrolnega algoritma SpinL
-var STARTctrlSpinR = 0; // zastavica za izklop kontrolnega algoritma SpinR
-var STARTctrlHzLRfw = 0; // zastavica za rotacijo koles naprej z različnimi frekvencami, npr. Levo = 10Hz, Desno = 5Hz 
-var STARTctrlHzLRbk = 0; // zastavica za rotacijo koles nazaj z različnimi frekvencami, npr. Levo = 10Hz, Desno = 5Hz  
+var refreshFrequency = 100; // frequency of control algorithm refresh in ms
 
 var STARTctrl = 0;
 
 var upperLimitPWM = 125; // zgornja meja vrednosti PWM - le ta določa koliko lahko največ kontrolni algoritem pošlje na PWM    
-var lowerLimitPWM = 0; // spodnja meja vrednosti PWM - le ta določa koliko lahko najmanj kontrolni algoritem pošlje na PWM    
 
 var zelenaVrednostNaprej = 0;    
 var zelenaVrednostNazaj = 0;
@@ -391,13 +386,9 @@ var KpRight = 0.03;
 var KiRight = 0.03;
 var KdRight = 0.02;
 var LeftLastMeasures = new Array();
-var LeftLastTimes = new Array();
 var LeftLastIntervals = new Array();
-var NumLastMeasuresLeft = 0;
 var RightLastMeasures = new Array();
-var RightLastTimes = new Array();
 var RightLastIntervals = new Array();
-var NumLastMeasuresRight = 0;
 var StateNotChanged = 1;
 var LeftStoppedFlag = 1;
 var RightStoppedFlag = 1;
@@ -426,6 +417,7 @@ var numberOfCountsRight;
 var timeIntervalLeft;
 var timeIntervalRight;
 
+////////////////////////////////////////// Fuzzy controller for frequency control begin
 var NFuzzyVars = 4;
 var NFuzzyOutputs = 2;
 var NFuzzySets = new Array(NFuzzyVars);
@@ -458,11 +450,10 @@ ValuesForFuzzy[0] = 0;
 ValuesForFuzzy[1] = 0;
 ValuesForFuzzy[2] = 0;
 ValuesForFuzzy[3] = 0;
-ValuesForFuzzy[4] = 0;
 
 var AlphaCutLeft = new Array(NFuzzySets[0]); // use number of output fuzzy sets
 var AlphaCutRight = new Array(NFuzzySets[1]); // use number of output fuzzy sets
-
+{
 RBase[0][0] = 0;        RBase[0][1] = -1;       RBase[0][2] = 0;        RBase[0][3] = -1; 
 RBase[1][0] = 1;        RBase[1][1] = -1;       RBase[1][2] = 1;        RBase[1][3] = -1; 
 RBase[2][0] = 2;        RBase[2][1] = -1;       RBase[2][2] = 2;        RBase[2][3] = -1; 
@@ -482,7 +473,8 @@ RBase[14][0] = -1;      RBase[14][1] = 5;       RBase[14][2] = -1;      RBase[14
 RBase[15][0] = -1;      RBase[15][1] = 6;       RBase[15][2] = -1;      RBase[15][3] = 6;
 RBase[16][0] = -1;      RBase[16][1] = 7;       RBase[16][2] = -1;      RBase[16][3] = 7;
 RBase[17][0] = -1;      RBase[17][1] = 8;       RBase[17][2] = -1;      RBase[17][3] = 8;
-
+}
+{
 var FS0val1 = 4;
 var FS0val2 = 2;
 var FS0val3 = 1;
@@ -637,7 +629,7 @@ FSvalues[3][7][2] = FS1val1;
 FSvalues[3][8][0] = FS1val2;
 FSvalues[3][8][1] = FS1val1;
 FSvalues[3][8][2] = FS1val1;
-
+}
 
 function getMRfromFSvalues(value, NumOfVar, NumOfSet)
 {
@@ -886,6 +878,551 @@ function getPWMfromFuzzyRight(zelenaVrednostDesno,frequencyRight)
         FuzzyPWMright = 0;
     return FuzzyPWMright;
 }
+////////////////////////////////////////// Fuzzy controller for frequency control end
+
+////////////////////////////////////////// Fuzzy controller for desired frequency change (brake assist) begin
+
+var NFuzzyVarsBA = 17;
+var NFuzzyOutputsBA = 4;
+var NFuzzySetsBA = new Array(NFuzzyVarsBA);
+NFuzzySetsBA[0] = 4;
+NFuzzySetsBA[1] = 4;
+NFuzzySetsBA[2] = 4;
+NFuzzySetsBA[3] = 4;
+
+NFuzzySetsBA[4] = 9;
+NFuzzySetsBA[5] = 4;
+NFuzzySetsBA[6] = 4;
+NFuzzySetsBA[7] = 4;
+NFuzzySetsBA[8] = 4;
+NFuzzySetsBA[9] = 4;
+NFuzzySetsBA[10] = 4;
+NFuzzySetsBA[11] = 4;
+NFuzzySetsBA[12] = 4;
+NFuzzySetsBA[13] = 4;
+NFuzzySetsBA[14] = 4;
+NFuzzySetsBA[15] = 4;
+NFuzzySetsBA[16] = 4;
+
+var AlphaCutBA = new Array(NFuzzyOutputsBA);
+for (var i=0;i!=NFuzzyOutputsBA;i++)
+{
+    AlphaCutBA[i] = new Array(NFuzzySetsBA[i]);
+}
+
+var NRulesBA = 96;
+var RBaseBA = new Array(NRulesBA);
+for (var i=0;i!=NRulesBA;i++)
+{
+    RBaseBA[i] = new Array(NFuzzyVarsBA);
+}
+
+var ValuesForFuzzyBA = new Array(NFuzzyVars);
+ValuesForFuzzyBA[0] = 0;
+ValuesForFuzzyBA[1] = 0;
+ValuesForFuzzyBA[2] = 0;
+ValuesForFuzzyBA[3] = 0;
+ValuesForFuzzyBA[4] = 0;
+ValuesForFuzzyBA[5] = 0;
+ValuesForFuzzyBA[6] = 0;
+ValuesForFuzzyBA[7] = 0;
+ValuesForFuzzyBA[8] = 0;
+ValuesForFuzzyBA[9] = 0;
+ValuesForFuzzyBA[10] = 0;
+ValuesForFuzzyBA[11] = 0;
+ValuesForFuzzyBA[12] = 0;
+ValuesForFuzzyBA[13] = 0;
+ValuesForFuzzyBA[14] = 0;
+ValuesForFuzzyBA[15] = 0;
+ValuesForFuzzyBA[16] = 0;
+
+var FSvaluesBA = new Array(NFuzzyVarsBA);
+for (var i=0;i!=NFuzzyVarsBA;i++)
+{
+    FSvaluesBA[i] = new Array(NFuzzySetsBA[i]);
+    for (var j=0;j!=NFuzzySetsBA[i];j++)
+    {
+        FSvaluesBA[i][j] = new Array(3);
+    }
+}
+
+{
+    
+for (var i=0;i!=NRulesBA;i++)
+{
+    for (var j=0;j!=NFuzzyVarsBA;j++)
+    {
+        RBaseBA[i][j] = -1;
+        //console.log(i + ' ' + j);
+    }
+}
+
+var RN = 0;
+//bkwd
+RBaseBA[RN][0] = 0;        RBaseBA[RN][2] = 0;        RBaseBA[RN][4] = 2;       RBaseBA[RN][11] = 3; RN++;
+RBaseBA[RN][0] = 1;        RBaseBA[RN][2] = 1;        RBaseBA[RN][4] = 2;       RBaseBA[RN][11] = 2; RN++;
+RBaseBA[RN][0] = 2;        RBaseBA[RN][2] = 2;        RBaseBA[RN][4] = 2;       RBaseBA[RN][11] = 1; RN++;
+RBaseBA[RN][0] = 3;        RBaseBA[RN][2] = 3;        RBaseBA[RN][4] = 2;       RBaseBA[RN][11] = 0; RN++;
+
+RBaseBA[RN][0] = 0;        RBaseBA[RN][2] = 0;        RBaseBA[RN][4] = 2;       RBaseBA[RN][12] = 3; RN++;
+RBaseBA[RN][0] = 1;        RBaseBA[RN][2] = 1;        RBaseBA[RN][4] = 2;       RBaseBA[RN][12] = 2; RN++;
+RBaseBA[RN][0] = 2;        RBaseBA[RN][2] = 2;        RBaseBA[RN][4] = 2;       RBaseBA[RN][12] = 1; RN++;
+RBaseBA[RN][0] = 3;        RBaseBA[RN][2] = 3;        RBaseBA[RN][4] = 2;       RBaseBA[RN][12] = 0; RN++;
+
+RBaseBA[RN][0] = 0;        RBaseBA[RN][2] = 0;        RBaseBA[RN][4] = 2;       RBaseBA[RN][14] = 3; RN++;
+RBaseBA[RN][0] = 1;        RBaseBA[RN][2] = 1;        RBaseBA[RN][4] = 2;       RBaseBA[RN][14] = 2; RN++;
+RBaseBA[RN][0] = 2;        RBaseBA[RN][2] = 2;        RBaseBA[RN][4] = 2;       RBaseBA[RN][14] = 1; RN++;
+RBaseBA[RN][0] = 3;        RBaseBA[RN][2] = 3;        RBaseBA[RN][4] = 2;       RBaseBA[RN][14] = 0; RN++;
+
+RBaseBA[RN][0] = 0;        RBaseBA[RN][2] = 0;        RBaseBA[RN][4] = 2;       RBaseBA[RN][15] = 3; RN++;
+RBaseBA[RN][0] = 1;        RBaseBA[RN][2] = 1;        RBaseBA[RN][4] = 2;       RBaseBA[RN][15] = 2; RN++;
+RBaseBA[RN][0] = 2;        RBaseBA[RN][2] = 2;        RBaseBA[RN][4] = 2;       RBaseBA[RN][15] = 1; RN++;
+RBaseBA[RN][0] = 3;        RBaseBA[RN][2] = 3;        RBaseBA[RN][4] = 2;       RBaseBA[RN][15] = 0; RN++;
+//fwd
+RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 1;       RBaseBA[RN][5] = 3; RN++;
+RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 1;       RBaseBA[RN][5] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 1;       RBaseBA[RN][5] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 1;       RBaseBA[RN][5] = 0; RN++;
+
+RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 1;       RBaseBA[RN][8] = 3; RN++;
+RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 1;       RBaseBA[RN][8] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 1;       RBaseBA[RN][8] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 1;       RBaseBA[RN][8] = 0; RN++;
+//spinL
+RBaseBA[RN][0] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 3;       RBaseBA[RN][6] = 3; RN++;
+RBaseBA[RN][0] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 3;       RBaseBA[RN][6] = 2; RN++;
+RBaseBA[RN][0] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 3;       RBaseBA[RN][6] = 1; RN++;
+RBaseBA[RN][0] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 3;       RBaseBA[RN][6] = 0; RN++;
+
+RBaseBA[RN][0] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 3;       RBaseBA[RN][7] = 3; RN++;
+RBaseBA[RN][0] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 3;       RBaseBA[RN][7] = 2; RN++;
+RBaseBA[RN][0] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 3;       RBaseBA[RN][7] = 1; RN++;
+RBaseBA[RN][0] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 3;       RBaseBA[RN][7] = 0; RN++;
+
+RBaseBA[RN][0] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 3;       RBaseBA[RN][16] = 3; RN++;
+RBaseBA[RN][0] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 3;       RBaseBA[RN][16] = 2; RN++;
+RBaseBA[RN][0] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 3;       RBaseBA[RN][16] = 1; RN++;
+RBaseBA[RN][0] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 3;       RBaseBA[RN][16] = 0; RN++;
+//spinR
+RBaseBA[RN][1] = 0;        RBaseBA[RN][2] = 0;        RBaseBA[RN][4] = 4;       RBaseBA[RN][9] = 3; RN++;
+RBaseBA[RN][1] = 1;        RBaseBA[RN][2] = 1;        RBaseBA[RN][4] = 4;       RBaseBA[RN][9] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][2] = 2;        RBaseBA[RN][4] = 4;       RBaseBA[RN][9] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][2] = 3;        RBaseBA[RN][4] = 4;       RBaseBA[RN][9] = 0; RN++;
+
+RBaseBA[RN][1] = 0;        RBaseBA[RN][2] = 0;        RBaseBA[RN][4] = 4;       RBaseBA[RN][10] = 3; RN++;
+RBaseBA[RN][1] = 1;        RBaseBA[RN][2] = 1;        RBaseBA[RN][4] = 4;       RBaseBA[RN][10] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][2] = 2;        RBaseBA[RN][4] = 4;       RBaseBA[RN][10] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][2] = 3;        RBaseBA[RN][4] = 4;       RBaseBA[RN][10] = 0; RN++;
+
+RBaseBA[RN][1] = 0;        RBaseBA[RN][2] = 0;        RBaseBA[RN][4] = 4;       RBaseBA[RN][13] = 3; RN++;
+RBaseBA[RN][1] = 1;        RBaseBA[RN][2] = 1;        RBaseBA[RN][4] = 4;       RBaseBA[RN][13] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][2] = 2;        RBaseBA[RN][4] = 4;       RBaseBA[RN][13] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][2] = 3;        RBaseBA[RN][4] = 4;       RBaseBA[RN][13] = 0; RN++;
+//BkLeftL5R10
+RBaseBA[RN][0] = 0;        RBaseBA[RN][2] = 0;        RBaseBA[RN][4] = 7;       RBaseBA[RN][11] = 3; RN++;
+RBaseBA[RN][0] = 1;        RBaseBA[RN][2] = 1;        RBaseBA[RN][4] = 7;       RBaseBA[RN][11] = 2; RN++;
+RBaseBA[RN][0] = 2;        RBaseBA[RN][2] = 2;        RBaseBA[RN][4] = 7;       RBaseBA[RN][11] = 1; RN++;
+RBaseBA[RN][0] = 3;        RBaseBA[RN][2] = 3;        RBaseBA[RN][4] = 7;       RBaseBA[RN][11] = 0; RN++;
+
+RBaseBA[RN][0] = 0;        RBaseBA[RN][2] = 0;        RBaseBA[RN][4] = 7;       RBaseBA[RN][12] = 3; RN++;
+RBaseBA[RN][0] = 1;        RBaseBA[RN][2] = 1;        RBaseBA[RN][4] = 7;       RBaseBA[RN][12] = 2; RN++;
+RBaseBA[RN][0] = 2;        RBaseBA[RN][2] = 2;        RBaseBA[RN][4] = 7;       RBaseBA[RN][12] = 1; RN++;
+RBaseBA[RN][0] = 3;        RBaseBA[RN][2] = 3;        RBaseBA[RN][4] = 7;       RBaseBA[RN][12] = 0; RN++;
+
+RBaseBA[RN][0] = 0;        RBaseBA[RN][2] = 0;        RBaseBA[RN][4] = 7;       RBaseBA[RN][14] = 3; RN++;
+RBaseBA[RN][0] = 1;        RBaseBA[RN][2] = 1;        RBaseBA[RN][4] = 7;       RBaseBA[RN][14] = 2; RN++;
+RBaseBA[RN][0] = 2;        RBaseBA[RN][2] = 2;        RBaseBA[RN][4] = 7;       RBaseBA[RN][14] = 1; RN++;
+RBaseBA[RN][0] = 3;        RBaseBA[RN][2] = 3;        RBaseBA[RN][4] = 7;       RBaseBA[RN][14] = 0; RN++;
+
+RBaseBA[RN][0] = 0;        RBaseBA[RN][2] = 0;        RBaseBA[RN][4] = 7;       RBaseBA[RN][15] = 3; RN++;
+RBaseBA[RN][0] = 1;        RBaseBA[RN][2] = 1;        RBaseBA[RN][4] = 7;       RBaseBA[RN][15] = 2; RN++;
+RBaseBA[RN][0] = 2;        RBaseBA[RN][2] = 2;        RBaseBA[RN][4] = 7;       RBaseBA[RN][15] = 1; RN++;
+RBaseBA[RN][0] = 3;        RBaseBA[RN][2] = 3;        RBaseBA[RN][4] = 7;       RBaseBA[RN][15] = 0; RN++;
+//BkRightL10R5
+RBaseBA[RN][0] = 0;        RBaseBA[RN][2] = 0;        RBaseBA[RN][4] = 8;       RBaseBA[RN][11] = 3; RN++;
+RBaseBA[RN][0] = 1;        RBaseBA[RN][2] = 1;        RBaseBA[RN][4] = 8;       RBaseBA[RN][11] = 2; RN++;
+RBaseBA[RN][0] = 2;        RBaseBA[RN][2] = 2;        RBaseBA[RN][4] = 8;       RBaseBA[RN][11] = 1; RN++;
+RBaseBA[RN][0] = 3;        RBaseBA[RN][2] = 3;        RBaseBA[RN][4] = 8;       RBaseBA[RN][11] = 0; RN++;
+
+RBaseBA[RN][0] = 0;        RBaseBA[RN][2] = 0;        RBaseBA[RN][4] = 8;       RBaseBA[RN][12] = 3; RN++;
+RBaseBA[RN][0] = 1;        RBaseBA[RN][2] = 1;        RBaseBA[RN][4] = 8;       RBaseBA[RN][12] = 2; RN++;
+RBaseBA[RN][0] = 2;        RBaseBA[RN][2] = 2;        RBaseBA[RN][4] = 8;       RBaseBA[RN][12] = 1; RN++;
+RBaseBA[RN][0] = 3;        RBaseBA[RN][2] = 3;        RBaseBA[RN][4] = 8;       RBaseBA[RN][12] = 0; RN++;
+
+RBaseBA[RN][0] = 0;        RBaseBA[RN][2] = 0;        RBaseBA[RN][4] = 8;       RBaseBA[RN][14] = 3; RN++;
+RBaseBA[RN][0] = 1;        RBaseBA[RN][2] = 1;        RBaseBA[RN][4] = 8;       RBaseBA[RN][14] = 2; RN++;
+RBaseBA[RN][0] = 2;        RBaseBA[RN][2] = 2;        RBaseBA[RN][4] = 8;       RBaseBA[RN][14] = 1; RN++;
+RBaseBA[RN][0] = 3;        RBaseBA[RN][2] = 3;        RBaseBA[RN][4] = 8;       RBaseBA[RN][14] = 0; RN++;
+
+RBaseBA[RN][0] = 0;        RBaseBA[RN][2] = 0;        RBaseBA[RN][4] = 8;       RBaseBA[RN][15] = 3; RN++;
+RBaseBA[RN][0] = 1;        RBaseBA[RN][2] = 1;        RBaseBA[RN][4] = 8;       RBaseBA[RN][15] = 2; RN++;
+RBaseBA[RN][0] = 2;        RBaseBA[RN][2] = 2;        RBaseBA[RN][4] = 8;       RBaseBA[RN][15] = 1; RN++;
+RBaseBA[RN][0] = 3;        RBaseBA[RN][2] = 3;        RBaseBA[RN][4] = 8;       RBaseBA[RN][15] = 0; RN++;
+//FwLeftL5R10
+RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 5;       RBaseBA[RN][5] = 3; RN++;
+RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 5;       RBaseBA[RN][5] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 5;       RBaseBA[RN][5] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 5;       RBaseBA[RN][5] = 0; RN++;
+
+RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 5;       RBaseBA[RN][8] = 3; RN++;
+RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 5;       RBaseBA[RN][8] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 5;       RBaseBA[RN][8] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 5;       RBaseBA[RN][8] = 0; RN++;
+//FwRightL10R5
+RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 6;       RBaseBA[RN][5] = 3; RN++;
+RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 6;       RBaseBA[RN][5] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 6;       RBaseBA[RN][5] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 6;       RBaseBA[RN][5] = 0; RN++;
+
+RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 6;       RBaseBA[RN][8] = 3; RN++;
+RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 6;       RBaseBA[RN][8] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 6;       RBaseBA[RN][8] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 6;       RBaseBA[RN][8] = 0; RN++;
+//fwd
+console.log(RN);
+}   //rules
+
+{
+var FSOutBAval1 = 0;
+var FSOutBAval2 = 0.1;
+var FSOutBAval3 = 0.7;
+var FSOutBAval4 = 2;
+
+///////////////////////////////////// LEFT BACK BA CONTROL
+FSvaluesBA[0][0][0] =  FSOutBAval1;
+FSvaluesBA[0][0][1] =  FSOutBAval1;
+FSvaluesBA[0][0][2] =  FSOutBAval2;    
+
+FSvaluesBA[0][1][0] =  FSOutBAval1;
+FSvaluesBA[0][1][1] =  FSOutBAval2;
+FSvaluesBA[0][1][2] =  FSOutBAval3;
+
+FSvaluesBA[0][2][0] =  FSOutBAval2;
+FSvaluesBA[0][2][1] =  FSOutBAval3;
+FSvaluesBA[0][2][2] =  FSOutBAval4;
+
+FSvaluesBA[0][3][0] =  FSOutBAval3;
+FSvaluesBA[0][3][1] =  FSOutBAval4;
+FSvaluesBA[0][3][2] =  FSOutBAval4;
+
+///////////////////////////////////// LEFT FORWARD BA CONTROL
+FSvaluesBA[1][0][0] =  FSOutBAval1;
+FSvaluesBA[1][0][1] =  FSOutBAval1;
+FSvaluesBA[1][0][2] =  FSOutBAval2;    
+
+FSvaluesBA[1][1][0] =  FSOutBAval1;
+FSvaluesBA[1][1][1] =  FSOutBAval2;
+FSvaluesBA[1][1][2] =  FSOutBAval3;
+
+FSvaluesBA[1][2][0] =  FSOutBAval2;
+FSvaluesBA[1][2][1] =  FSOutBAval3;
+FSvaluesBA[1][2][2] =  FSOutBAval4;
+
+FSvaluesBA[1][3][0] =  FSOutBAval3;
+FSvaluesBA[1][3][1] =  FSOutBAval4;
+FSvaluesBA[1][3][2] =  FSOutBAval4;
+
+///////////////////////////////////// RIGHT BACK BA CONTROL
+FSvaluesBA[2][0][0] =  FSOutBAval1;
+FSvaluesBA[2][0][1] =  FSOutBAval1;
+FSvaluesBA[2][0][2] =  FSOutBAval2;    
+
+FSvaluesBA[2][1][0] =  FSOutBAval1;
+FSvaluesBA[2][1][1] =  FSOutBAval2;
+FSvaluesBA[2][1][2] =  FSOutBAval3;
+
+FSvaluesBA[2][2][0] =  FSOutBAval2;
+FSvaluesBA[2][2][1] =  FSOutBAval3;
+FSvaluesBA[2][2][2] =  FSOutBAval4;
+
+FSvaluesBA[2][3][0] =  FSOutBAval3;
+FSvaluesBA[2][3][1] =  FSOutBAval4;
+FSvaluesBA[2][3][2] =  FSOutBAval4;
+
+///////////////////////////////////// RIGHT FORWARD BA CONTROL
+FSvaluesBA[3][0][0] =  FSOutBAval1;
+FSvaluesBA[3][0][1] =  FSOutBAval1;
+FSvaluesBA[3][0][2] =  FSOutBAval2;    
+
+FSvaluesBA[3][1][0] =  FSOutBAval1;
+FSvaluesBA[3][1][1] =  FSOutBAval2;
+FSvaluesBA[3][1][2] =  FSOutBAval3;
+
+FSvaluesBA[3][2][0] =  FSOutBAval2;
+FSvaluesBA[3][2][1] =  FSOutBAval3;
+FSvaluesBA[3][2][2] =  FSOutBAval4;
+
+FSvaluesBA[3][3][0] =  FSOutBAval3;
+FSvaluesBA[3][3][1] =  FSOutBAval4;
+FSvaluesBA[3][3][2] =  FSOutBAval4;
+/////////////////////////////////////
+
+
+///////////////////////////////////// INPUT CONTROL SIGNAL
+FSvaluesBA[4][0][0] = -0.1;
+FSvaluesBA[4][0][1] = 0;
+FSvaluesBA[4][0][2] = 0.1;
+
+FSvaluesBA[4][1][0] = 0.9;
+FSvaluesBA[4][1][1] = 1;
+FSvaluesBA[4][1][2] = 1.1;
+
+FSvaluesBA[4][2][0] = 1.9;
+FSvaluesBA[4][2][1] = 2;
+FSvaluesBA[4][2][2] = 2.1;
+
+FSvaluesBA[4][3][0] = 2.9;
+FSvaluesBA[4][3][1] = 3;
+FSvaluesBA[4][3][2] = 3.1;
+
+FSvaluesBA[4][4][0] = 3.9;
+FSvaluesBA[4][4][1] = 4;
+FSvaluesBA[4][4][2] = 4.1;
+
+FSvaluesBA[4][5][0] = 4.9;
+FSvaluesBA[4][5][1] = 5;
+FSvaluesBA[4][5][2] = 5.1;
+
+FSvaluesBA[4][6][0] = 5.9;
+FSvaluesBA[4][6][1] = 6;
+FSvaluesBA[4][6][2] = 6.1;
+
+FSvaluesBA[4][7][0] = 6.9;
+FSvaluesBA[4][7][1] = 7;
+FSvaluesBA[4][7][2] = 7.1;
+
+FSvaluesBA[4][8][0] = 7.9;
+FSvaluesBA[4][8][1] = 8;
+FSvaluesBA[4][8][2] = 8.1;
+/////////////////////////////////////
+var FSSenBAval1 = 0;
+var FSSenBAval2 = 20;
+var FSSenBAval3 = 40;
+var FSSenBAval4 = 100;
+///////////////////////////////////// SENSOR 1
+for (var i=5;i!=17;i++)
+{
+    FSvaluesBA[i][0][0] = FSSenBAval1;
+    FSvaluesBA[i][0][1] = FSSenBAval1;
+    FSvaluesBA[i][0][2] = FSSenBAval2;
+    
+    FSvaluesBA[i][1][0] = FSSenBAval1;
+    FSvaluesBA[i][1][1] = FSSenBAval2;
+    FSvaluesBA[i][1][2] = FSSenBAval3;
+    
+    FSvaluesBA[i][2][0] = FSSenBAval2;
+    FSvaluesBA[i][2][1] = FSSenBAval3;
+    FSvaluesBA[i][2][2] = FSSenBAval4;
+    
+    FSvaluesBA[i][3][0] = FSSenBAval3;
+    FSvaluesBA[i][3][1] = FSSenBAval4;
+    FSvaluesBA[i][3][2] = FSSenBAval4;
+}
+
+}   //Fuzzy sets
+
+function getMRFromFSvaluesBA(value,NumOfVar,NumOfSet)
+{
+    if (NumOfSet == -1)
+    {
+        return 1;
+    }
+    if (NumOfSet == 0)
+    {
+        if (value < FSvaluesBA[NumOfVar][NumOfSet][0])
+        {
+            return 1;
+        }
+        else if (value > FSvaluesBA[NumOfVar][NumOfSet][2])
+        {
+            return 0;
+        }
+        else
+        {
+            return (FSvaluesBA[NumOfVar][NumOfSet][2] - value) / (FSvaluesBA[NumOfVar][NumOfSet][2] - FSvaluesBA[NumOfVar][NumOfSet][1]);
+        }
+    }
+    else if (NumOfSet == NFuzzySetsBA[NumOfVar] - 1)
+    {
+        if (value < FSvaluesBA[NumOfVar][NumOfSet][0])
+        {
+            return 0;
+        }
+        else if (value > FSvaluesBA[NumOfVar][NumOfSet][2])
+        {
+            return 1;
+        }
+        else if (value < FSvaluesBA[NumOfVar][NumOfSet][1])
+        {
+            return (value - FSvaluesBA[NumOfVar][NumOfSet][0]) / (FSvaluesBA[NumOfVar][NumOfSet][1] - FSvaluesBA[NumOfVar][NumOfSet][0]);
+        }
+    }
+    else 
+    {
+        if (value < FSvaluesBA[NumOfVar][NumOfSet][0])
+        {
+            return 0;
+        }
+        else if (value > FSvaluesBA[NumOfVar][NumOfSet][2])
+        {
+            return 0;
+        }
+        else if (value < FSvaluesBA[NumOfVar][NumOfSet][1])
+        {
+            return (value - FSvaluesBA[NumOfVar][NumOfSet][0]) / (FSvaluesBA[NumOfVar][NumOfSet][1] - FSvaluesBA[NumOfVar][NumOfSet][0]);
+        }
+        else
+        {
+            return (FSvaluesBA[NumOfVar][NumOfSet][2] - value) / (FSvaluesBA[NumOfVar][NumOfSet][2] - FSvaluesBA[NumOfVar][NumOfSet][1]);
+        }
+    }
+}
+
+function getDesiredValuesFuzzyBA()
+{
+    for (var i=0;i!=NFuzzyOutputsBA;i++)
+    {
+        for (var j=0;j!=NFuzzySetsBA[i];j++)
+        {
+            AlphaCutBA[i][j] = 0;
+        }
+    }
+    
+    for (var i=0;i!=NRulesBA;i++)
+    {
+        var tempMR = 0;
+        var tempMinMR = 1;
+        var NumOfDC = 0;
+        for (var CurrentVar = NFuzzyOutputsBA;CurrentVar!=NFuzzyVarsBA;CurrentVar++)
+        {
+            if (RBaseBA[i][CurrentVar] != -1)
+            {
+                //console.log('ValuesForFuzzyBA[CurrentVar] = ' + ValuesForFuzzyBA[CurrentVar] + ' CurrentVar = ' + CurrentVar + ' tempMR = ' + tempMR);
+                //console.log('NofRule = ' + i + ' RBaseBA[i][CurrentVar] = ' + RBaseBA[i][CurrentVar]);
+                tempMR = getMRFromFSvaluesBA(ValuesForFuzzyBA[CurrentVar],CurrentVar,RBaseBA[i][CurrentVar]);
+                if (tempMR < tempMinMR)
+                    tempMinMR = tempMR;
+            }
+            else
+                NumOfDC++;
+            //console.log('RBase[i][CurrentVar] = ' + RBase[i][CurrentVar] + 'NumOfDC = ' + NumOfDC + 'ErrorRight[L] = ' + ErrorRight[L] + 'tempMR = ' + tempMR + 'tempMinMR = ' + tempMinMR);
+        }
+        //console.log('tempMinMR = ' + tempMinMR);
+        for (var CurrentVar = 0;CurrentVar!=NFuzzyOutputsBA;CurrentVar++)
+        {
+            //console.log('RBaseBA['+i+']['+CurrentVar+'] = ' + RBaseBA[i][CurrentVar]);
+            if ((NumOfDC != NFuzzyVarsBA - NFuzzyOutputsBA) && (RBaseBA[i][CurrentVar] != -1))
+            {
+                if (tempMinMR > AlphaCutBA[CurrentVar][RBaseBA[i][CurrentVar]])
+                    AlphaCutBA[CurrentVar][RBaseBA[i][CurrentVar]] = tempMinMR;
+            }
+            //if (RBaseBA[i][CurrentVar] != -1)
+            //console.log('AlphaCutBA['+CurrentVar+']['+RBaseBA[i][CurrentVar]+'] = ' + AlphaCutBA[CurrentVar][RBaseBA[i][CurrentVar]]);
+        }
+    }
+    for (var i=0;i!=NFuzzyOutputsBA;i++)
+    {
+        for (var j=0;j!=NFuzzySetsBA[i];j++)
+        {
+            //console.log('AlphaCutBA['+i+']['+j+'] = ' + AlphaCutBA[i][j]);
+        }
+    }
+    for (var CurrentVar = 0;CurrentVar!=NFuzzyOutputsBA;CurrentVar++)
+    {
+        var FuzzyRange = FSvaluesBA[CurrentVar][NFuzzySetsBA[CurrentVar]-1][2] - FSvaluesBA[CurrentVar][0][0];
+        //console.log('CurrentVar = ' + CurrentVar);
+        //console.log('NFuzzySetsBA[CurrentVar]-1 = ' + (NFuzzySetsBA[CurrentVar]-1));
+        //console.log('FSvaluesBA['+CurrentVar+']['+(NFuzzySetsBA[CurrentVar]-1)+'][2] = ' + FSvaluesBA[CurrentVar][NFuzzySetsBA[CurrentVar]-1][2]);
+        //console.log('FSvaluesBA['+CurrentVar+'][0][0] = ' + FSvaluesBA[CurrentVar][0][0]);
+        //console.log('FuzzyRange = ' + FuzzyRange);
+        var NIntervals = 100;
+        var CoordinateMassSumm = 0;
+        var MassSumm = 0;
+        for (var i=0;i!=NIntervals;i++)
+        {
+            var TempCoordinate = FSvaluesBA[CurrentVar][0][0] + FuzzyRange/NIntervals*i;
+            //console.log('TempCoordinate = ' + TempCoordinate);
+            var TempMass1 = 0;
+            var TempMass2 = 0;
+            for (var j=0;j!=NFuzzySetsBA[CurrentVar];j++)
+            {
+                //console.log('AlphaCutRight[j] = ' + AlphaCutRight[j]);
+                TempMass2 = getMRFromFSvaluesBA(TempCoordinate,CurrentVar,j);
+                //console.log('TempMass2 = ' + TempMass2);
+                if (TempMass2 > AlphaCutBA[CurrentVar][j])
+                    TempMass2 = AlphaCutBA[CurrentVar][j];
+                if (TempMass2 > TempMass1)
+                    TempMass1 = TempMass2;
+            }
+            MassSumm += TempMass1;
+            CoordinateMassSumm += TempCoordinate * TempMass1;
+            //console.log('CoordinateMassSumm = ' + CoordinateMassSumm + ' ' + 'MassSumm = ' + MassSumm);
+        }
+        //console.log('CoordinateMassSumm = ' + CoordinateMassSumm + ' ' + 'MassSumm = ' + MassSumm);
+        if (MassSumm != 0) 
+            ValuesForFuzzyBA[CurrentVar] = CoordinateMassSumm / MassSumm;
+        if (ValuesForFuzzyBA[CurrentVar].isNaN)
+            ValuesForFuzzyBA[CurrentVar] = 0;
+        if (ValuesForFuzzyBA[CurrentVar] > 1)
+            ValuesForFuzzyBA[CurrentVar] = 1;
+    }
+}
+
+function setDesiredDecay()
+{
+    if (ValuesForFuzzyBA[4] == 0)   //STOP
+    {
+        zelenaVrednostLevo = 0;
+        zelenaVrednostDesno = 0;
+    } else
+    if (ValuesForFuzzyBA[4] == 1)   //FORWARD
+    {
+        zelenaVrednostLevo = Speed*(1-ValuesForFuzzyBA[1]);     // 1 - left fwd
+        zelenaVrednostDesno = Speed*(1-ValuesForFuzzyBA[3]);    // 3 - right fwd
+    } else
+    if (ValuesForFuzzyBA[4] == 2)   //BACKWARD
+    {
+        zelenaVrednostLevo = -Speed*(1-ValuesForFuzzyBA[0]);    // 0 - left bkwd
+        zelenaVrednostDesno = -Speed*(1-ValuesForFuzzyBA[2]);   // 2 - right bkwd
+    } else
+    if (ValuesForFuzzyBA[4] == 3)   //SPIN LEFT
+    {
+        zelenaVrednostLevo = -Speed*(1-ValuesForFuzzyBA[0]);
+        zelenaVrednostDesno = Speed*(1-ValuesForFuzzyBA[3]);
+    } else
+    if (ValuesForFuzzyBA[4] == 4)   //SPIN RIGHT
+    {
+        zelenaVrednostLevo = Speed*(1-ValuesForFuzzyBA[1]);
+        zelenaVrednostDesno = -Speed*(1-ValuesForFuzzyBA[2]);
+    } else
+    if (ValuesForFuzzyBA[4] == 5)   //FwLeftL5R10
+    {
+        zelenaVrednostLevo = Speed*(1-ValuesForFuzzyBA[1])/2;
+        zelenaVrednostDesno = Speed*(1-ValuesForFuzzyBA[3]);
+    } else
+    if (ValuesForFuzzyBA[4] == 6)   //FwLeftL10R5
+    {
+        zelenaVrednostLevo = Speed*(1-ValuesForFuzzyBA[1]);
+        zelenaVrednostDesno = Speed*(1-ValuesForFuzzyBA[3])/2
+    } else
+    if (ValuesForFuzzyBA[4] == 7)   //BkLeftL5R10
+    {
+        zelenaVrednostLevo = -Speed*(1-ValuesForFuzzyBA[0])/2;
+        zelenaVrednostDesno = -Speed*(1-ValuesForFuzzyBA[2]);
+    } else
+    if (ValuesForFuzzyBA[4] == 8)   //BkLeftL10R5
+    {
+        zelenaVrednostLevo = -Speed*(1-ValuesForFuzzyBA[0]);
+        zelenaVrednostDesno = -Speed*(1-ValuesForFuzzyBA[2])/2;
+    } else                          // WHAT WE HAVE TO DO??? STOP!
+    {
+        zelenaVrednostLevo = 0;
+        zelenaVrednostDesno = 0;
+    }
+}
+
+////////////////////////////////////////// Fuzzy controller for desired frequency change (brake assist) end
+
 
 // var timersound=setInterval(function(){getSound()}, 100); 
 
@@ -1115,6 +1652,7 @@ function SolenoidDown()
     {
         board.digitalWrite(SolenoidPin, 0);     // Than trigger solenoid DOWN
         console.log("SOLENOID DOWN!");
+        ValuesForFuzzyBA[4] = 0;
     }
 }
 
@@ -1238,9 +1776,21 @@ function frequencyMeasureAndControlLeftRight() {
     for (var i=0;i!=12;i++)
     {
         USSbuffer += 'S' + (i+1) + '\t' + parseFloat(USSensor[i]).toFixed(2) + '\t'
-        
     }
     console.log(USSbuffer);
+    
+    ValuesForFuzzyBA[5] = parseFloat(USSensor[0]);
+    ValuesForFuzzyBA[6] = parseFloat(USSensor[1]);
+    ValuesForFuzzyBA[7] = parseFloat(USSensor[2]);
+    ValuesForFuzzyBA[8] = parseFloat(USSensor[3]);
+    ValuesForFuzzyBA[9] = parseFloat(USSensor[4]);
+    ValuesForFuzzyBA[10] = parseFloat(USSensor[5]);
+    ValuesForFuzzyBA[11] = parseFloat(USSensor[6]);
+    ValuesForFuzzyBA[12] = parseFloat(USSensor[7]);
+    ValuesForFuzzyBA[13] = parseFloat(USSensor[8]);
+    ValuesForFuzzyBA[14] = parseFloat(USSensor[9]);
+    ValuesForFuzzyBA[15] = parseFloat(USSensor[10]);
+    ValuesForFuzzyBA[16] = parseFloat(USSensor[11]);
   
     // **************************************************************************************
     // Kontrolni algoritem ZAČETEK
@@ -1251,10 +1801,13 @@ function frequencyMeasureAndControlLeftRight() {
     if (STARTctrl == 1) { // le v primeru, da želene vrednosti v smeri nazaj nismo podali izvedemo algoritem za naprej
 
         //socket.emit("ukazArduinu", {"stevilkaUkaza": stevilkaUkaza, "pinNo": 5, "valuePWM": 1}); // za vsak primer pin naprej postavimo na 0
-        //console.log("želena Levo " + zelenaVrednostLevo);
-        //console.log("želena Desno " + zelenaVrednostDesno);
-        console.log("frequencyLeft " + frequencyLeft);
-        console.log("frequencyRight " + frequencyRight);
+        console.log('ValuesForFuzzyBA[0] = ' + ValuesForFuzzyBA[0] + ' ValuesForFuzzyBA[1] = ' + ValuesForFuzzyBA[1] + ' ValuesForFuzzyBA[2] = ' + ValuesForFuzzyBA[2] + ' ValuesForFuzzyBA[3] = ' + ValuesForFuzzyBA[3] + ' ValuesForFuzzyBA[4] = ' + ValuesForFuzzyBA[4]);
+        getDesiredValuesFuzzyBA();
+        setDesiredDecay();
+        console.log("želena Levo " + zelenaVrednostLevo);
+        console.log("želena Desno " + zelenaVrednostDesno);
+        //console.log("frequencyLeft " + frequencyLeft);
+        //console.log("frequencyRight " + frequencyRight);
 
         //PWMleft = GetPWMfromPIDLeft(zelenaVrednostLevo,frequencyLeft);
         //PWMright = GetPWMfromPIDRight(zelenaVrednostDesno,frequencyRight);
@@ -1263,8 +1816,10 @@ function frequencyMeasureAndControlLeftRight() {
 
         FuzzyPWMleft = getPWMfromFuzzyLeft(zelenaVrednostLevo,frequencyLeft);
         FuzzyPWMright = getPWMfromFuzzyRight(zelenaVrednostDesno,frequencyRight);
-        console.log("       PWM for LEFT from Fuzzy is " + FuzzyPWMleft);
-        console.log("               PWM for RIGHT from Fuzzy is " + FuzzyPWMright);
+        //console.log("       PWM for LEFT from Fuzzy is " + FuzzyPWMleft);
+        //console.log("               PWM for RIGHT from Fuzzy is " + FuzzyPWMright);
+        
+        
 
         /*if (PWMleft > upperLimitPWM)
             PWMleft = upperLimitPWM;
@@ -1357,6 +1912,7 @@ io.sockets.on("connection", function(socket) {  // od oklepaja ( dalje imamo arg
         zelenaVrednostLevo = Speed; 
         zelenaVrednostDesno = Speed;
         console.log("Command FW");
+        ValuesForFuzzyBA[4] = 1;
 
         if (refreshClientGui == 1) {
         socket.emit("refreshClientGUInumValues", {
@@ -1382,6 +1938,7 @@ io.sockets.on("connection", function(socket) {  // od oklepaja ( dalje imamo arg
         zelenaVrednostLevo = -Speed; 
         zelenaVrednostDesno = -Speed;
         console.log("Command BK");
+        ValuesForFuzzyBA[4] = 2;
 
         if (refreshClientGui == 1) {
         socket.emit("refreshClientGUInumValues", {
@@ -1407,6 +1964,7 @@ io.sockets.on("connection", function(socket) {  // od oklepaja ( dalje imamo arg
         zelenaVrednostLevo = -Speed; 
         zelenaVrednostDesno = Speed;
         console.log("Command SpinL");
+        ValuesForFuzzyBA[4] = 3;
 
         if (refreshClientGui == 1) {
         socket.emit("refreshClientGUInumValues", {
@@ -1432,6 +1990,7 @@ socket.on("commandToArduinoSpinR", function(data) { // ko je socket ON in je pos
         zelenaVrednostLevo = Speed; 
         zelenaVrednostDesno = -Speed;
         console.log("Command SpinR");
+        ValuesForFuzzyBA[4] = 4;
 
         if (refreshClientGui == 1) {
         socket.emit("refreshClientGUInumValues", {
@@ -1457,6 +2016,7 @@ socket.on("commandToArduinoSpinR", function(data) { // ko je socket ON in je pos
         zelenaVrednostLevo = Speed/2; 
         zelenaVrednostDesno = Speed;
         console.log("Command FwLeftL5R10");
+        ValuesForFuzzyBA[4] = 5;
 
         if (refreshClientGui == 1) {
         socket.emit("refreshClientGUInumValues", {
@@ -1482,6 +2042,7 @@ socket.on("commandToArduinoSpinR", function(data) { // ko je socket ON in je pos
         zelenaVrednostLevo = Speed; 
         zelenaVrednostDesno = Speed/2;
         console.log("Command FwRightL10R5");
+        ValuesForFuzzyBA[4] = 6;
 
         if (refreshClientGui == 1) {
         socket.emit("refreshClientGUInumValues", {
@@ -1507,6 +2068,7 @@ socket.on("commandToArduinoSpinR", function(data) { // ko je socket ON in je pos
         zelenaVrednostLevo = -Speed/2; 
         zelenaVrednostDesno = -Speed;
         console.log("Command BkLeftL5R10");
+        ValuesForFuzzyBA[4] = 7;
 
         if (refreshClientGui == 1) {
         socket.emit("refreshClientGUInumValues", {
@@ -1532,6 +2094,7 @@ socket.on("commandToArduinoSpinR", function(data) { // ko je socket ON in je pos
         zelenaVrednostLevo = -Speed; 
         zelenaVrednostDesno = -Speed/2;
         console.log("Command BkRightL10R5");
+        ValuesForFuzzyBA[4] = 8;
 
         if (refreshClientGui == 1) {
         socket.emit("refreshClientGUInumValues", {
@@ -1557,6 +2120,7 @@ socket.on("commandToArduinoSpinR", function(data) { // ko je socket ON in je pos
         zelenaVrednostLevo = 0; 
         zelenaVrednostDesno = 0;
         console.log("Command STOP");
+        ValuesForFuzzyBA[4] = 0;
 
         if (refreshClientGui == 1) {
         socket.emit("refreshClientGUInumValues", {
