@@ -49,6 +49,12 @@ var USSensor = new Array();
     
 var SmoothingWeightUS = 0.33;
 
+var InfRedSen1Pin = "A5";
+var InfRedSen2Pin = "A4";
+
+var InfRedSen1;
+var InfRedSen2;
+
 
 var SerialPort = require("serialport").SerialPort
 var serialPort = new SerialPort("/dev/ttyACM1", {
@@ -109,6 +115,8 @@ serialPort.open(function (error) {
                 SensorBuffer = '';
             }
         }
+        if (ArduinoStarted)
+            ReadDistanceSensors();
         readData = readData.substring(0,readData.length-1);
         //console.log(readData);
         readData = '';
@@ -145,6 +153,9 @@ board.on("ready", function() {
     this.digitalWrite(RightEncPin2, 1);         // RIGHT digital pin from encoder 2
     this.digitalWrite(RightEncPin3, 1);         // RIGHT digital pin from encoder 3
     this.digitalWrite(SolenoidPin, 0);          // Solenoid must be DOWN
+    
+    InfRedSen1 = new five.Pin(InfRedSen1Pin);
+    InfRedSen2 = new five.Pin(InfRedSen2Pin);
 
     
     this.digitalRead(LeftEncPin1, function(value) 
@@ -334,7 +345,7 @@ console.log("Uporabite (S) httpS! - Zagon sistema - Uporabite (S) httpS!"); // n
 
 var sendDataToClient = 1; // flag to send data to the client
 
-var refreshFrequency = 100; // frequency of control algorithm refresh in ms
+var refreshFrequency = 50; // frequency of control algorithm refresh in ms
 
 var STARTctrl = 0;
 
@@ -416,6 +427,29 @@ var numberOfCountsRight;
 
 var timeIntervalLeft;
 var timeIntervalRight;
+
+var InfRedDistanceLeft=0;
+var InfRedDistanceRight=0;
+function ReadDistanceSensors()
+{
+    
+    five.Pin.read(InfRedSen1, function(error, value) {
+	var volts = value*0.0048828125; ;
+	var distance = 65*Math.pow(volts,-1.10);
+	if (distance > 200)
+		distance = 200;
+	InfRedDistanceLeft = (1.0-SmoothingWeightUS)*InfRedDistanceLeft + SmoothingWeightUS*distance;
+  	//console.log(distance);
+    });
+    five.Pin.read(InfRedSen2, function(error, value) {
+	var volts = value*0.0048828125; ;
+	var distance = 65*Math.pow(volts,-1.10);
+	if (distance > 200)
+		distance = 200;
+  	//console.log(distance);
+	InfRedDistanceRight = (1.0-SmoothingWeightUS)*InfRedDistanceRight + SmoothingWeightUS*distance;
+    });
+}
 
 ////////////////////////////////////////// Fuzzy controller for frequency control begin
 var NFuzzyVars = 4;
@@ -882,7 +916,7 @@ function getPWMfromFuzzyRight(zelenaVrednostDesno,frequencyRight)
 
 ////////////////////////////////////////// Fuzzy controller for desired frequency change (brake assist) begin
 
-var NFuzzyVarsBA = 17;
+var NFuzzyVarsBA = 19;
 var NFuzzyOutputsBA = 4;
 var NFuzzySetsBA = new Array(NFuzzyVarsBA);
 NFuzzySetsBA[0] = 4;
@@ -903,6 +937,8 @@ NFuzzySetsBA[13] = 4;
 NFuzzySetsBA[14] = 4;
 NFuzzySetsBA[15] = 4;
 NFuzzySetsBA[16] = 4;
+NFuzzySetsBA[17] = 4;
+NFuzzySetsBA[18] = 4;
 
 var AlphaCutBA = new Array(NFuzzyOutputsBA);
 for (var i=0;i!=NFuzzyOutputsBA;i++)
@@ -910,7 +946,7 @@ for (var i=0;i!=NFuzzyOutputsBA;i++)
     AlphaCutBA[i] = new Array(NFuzzySetsBA[i]);
 }
 
-var NRulesBA = 96;
+var NRulesBA = 120;
 var RBaseBA = new Array(NRulesBA);
 for (var i=0;i!=NRulesBA;i++)
 {
@@ -935,6 +971,8 @@ ValuesForFuzzyBA[13] = 0;
 ValuesForFuzzyBA[14] = 0;
 ValuesForFuzzyBA[15] = 0;
 ValuesForFuzzyBA[16] = 0;
+ValuesForFuzzyBA[17] = 0;
+ValuesForFuzzyBA[18] = 0;
 
 var FSvaluesBA = new Array(NFuzzyVarsBA);
 for (var i=0;i!=NFuzzyVarsBA;i++)
@@ -988,6 +1026,16 @@ RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 1;       
 RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 1;       RBaseBA[RN][8] = 2; RN++;
 RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 1;       RBaseBA[RN][8] = 1; RN++;
 RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 1;       RBaseBA[RN][8] = 0; RN++;
+
+RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 1;       RBaseBA[RN][17] = 3; RN++;
+RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 1;       RBaseBA[RN][17] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 1;       RBaseBA[RN][17] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 1;       RBaseBA[RN][17] = 0; RN++;
+
+RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 1;       RBaseBA[RN][18] = 3; RN++;
+RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 1;       RBaseBA[RN][18] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 1;       RBaseBA[RN][18] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 1;       RBaseBA[RN][18] = 0; RN++;
 //spinL
 RBaseBA[RN][0] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 3;       RBaseBA[RN][6] = 3; RN++;
 RBaseBA[RN][0] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 3;       RBaseBA[RN][6] = 2; RN++;
@@ -1068,6 +1116,16 @@ RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 5;       
 RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 5;       RBaseBA[RN][8] = 2; RN++;
 RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 5;       RBaseBA[RN][8] = 1; RN++;
 RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 5;       RBaseBA[RN][8] = 0; RN++;
+
+RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 1;       RBaseBA[RN][17] = 3; RN++;
+RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 1;       RBaseBA[RN][17] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 1;       RBaseBA[RN][17] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 1;       RBaseBA[RN][17] = 0; RN++;
+
+RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 1;       RBaseBA[RN][18] = 3; RN++;
+RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 1;       RBaseBA[RN][18] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 1;       RBaseBA[RN][18] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 1;       RBaseBA[RN][18] = 0; RN++;
 //FwRightL10R5
 RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 6;       RBaseBA[RN][5] = 3; RN++;
 RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 6;       RBaseBA[RN][5] = 2; RN++;
@@ -1078,6 +1136,16 @@ RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 6;       
 RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 6;       RBaseBA[RN][8] = 2; RN++;
 RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 6;       RBaseBA[RN][8] = 1; RN++;
 RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 6;       RBaseBA[RN][8] = 0; RN++;
+
+RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 1;       RBaseBA[RN][17] = 3; RN++;
+RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 1;       RBaseBA[RN][17] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 1;       RBaseBA[RN][17] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 1;       RBaseBA[RN][17] = 0; RN++;
+
+RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 1;       RBaseBA[RN][18] = 3; RN++;
+RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 1;       RBaseBA[RN][18] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 1;       RBaseBA[RN][18] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 1;       RBaseBA[RN][18] = 0; RN++;
 //fwd
 console.log(RN);
 }   //rules
@@ -1218,6 +1286,38 @@ for (var i=5;i!=17;i++)
     FSvaluesBA[i][3][1] = FSSenBAval4;
     FSvaluesBA[i][3][2] = FSSenBAval4;
 }
+
+FSvaluesBA[17][0][0] = 20;
+FSvaluesBA[17][0][1] = 20;
+FSvaluesBA[17][0][2] = 30;
+
+FSvaluesBA[17][1][0] = 20;
+FSvaluesBA[17][1][1] = 30;
+FSvaluesBA[17][1][2] = 40;
+
+FSvaluesBA[17][2][0] = 30;
+FSvaluesBA[17][2][1] = 40;
+FSvaluesBA[17][2][2] = 100;
+
+FSvaluesBA[17][3][0] = 40;
+FSvaluesBA[17][3][1] = 100;
+FSvaluesBA[17][3][2] = 100;
+
+FSvaluesBA[18][0][0] = 20;
+FSvaluesBA[18][0][1] = 20;
+FSvaluesBA[18][0][2] = 30;
+
+FSvaluesBA[18][1][0] = 20;
+FSvaluesBA[18][1][1] = 30;
+FSvaluesBA[18][1][2] = 40;
+
+FSvaluesBA[18][2][0] = 30;
+FSvaluesBA[18][2][1] = 40;
+FSvaluesBA[18][2][2] = 100;
+
+FSvaluesBA[18][3][0] = 40;
+FSvaluesBA[18][3][1] = 100;
+FSvaluesBA[18][3][2] = 100;
 
 }   //Fuzzy sets
 
@@ -1387,13 +1487,13 @@ function setDesiredDecay()
     } else
     if (ValuesForFuzzyBA[4] == 3)   //SPIN LEFT
     {
-        zelenaVrednostLevo = -Speed*(1-ValuesForFuzzyBA[0]);
-        zelenaVrednostDesno = Speed*(1-ValuesForFuzzyBA[3]);
+        zelenaVrednostLevo = -(Speed/2)*(1-ValuesForFuzzyBA[0]);
+        zelenaVrednostDesno = (Speed/2)*(1-ValuesForFuzzyBA[3]);
     } else
     if (ValuesForFuzzyBA[4] == 4)   //SPIN RIGHT
     {
-        zelenaVrednostLevo = Speed*(1-ValuesForFuzzyBA[1]);
-        zelenaVrednostDesno = -Speed*(1-ValuesForFuzzyBA[2]);
+        zelenaVrednostLevo = (Speed/2)*(1-ValuesForFuzzyBA[1]);
+        zelenaVrednostDesno = -(Speed/2)*(1-ValuesForFuzzyBA[2]);
     } else
     if (ValuesForFuzzyBA[4] == 5)   //FwLeftL5R10
     {
@@ -1778,6 +1878,7 @@ function frequencyMeasureAndControlLeftRight() {
         USSbuffer += 'S' + (i+1) + '\t' + parseFloat(USSensor[i]).toFixed(2) + '\t'
     }
     console.log(USSbuffer);
+    console.log(InfRedDistanceLeft + '\t' + InfRedDistanceRight);
     
     ValuesForFuzzyBA[5] = parseFloat(USSensor[0]);
     ValuesForFuzzyBA[6] = parseFloat(USSensor[1]);
@@ -1791,6 +1892,8 @@ function frequencyMeasureAndControlLeftRight() {
     ValuesForFuzzyBA[14] = parseFloat(USSensor[9]);
     ValuesForFuzzyBA[15] = parseFloat(USSensor[10]);
     ValuesForFuzzyBA[16] = parseFloat(USSensor[11]);
+    ValuesForFuzzyBA[17] = parseFloat(InfRedDistanceLeft);
+    ValuesForFuzzyBA[18] = parseFloat(InfRedDistanceRight);
   
     // **************************************************************************************
     // Kontrolni algoritem ZAČETEK
@@ -1961,8 +2064,8 @@ io.sockets.on("connection", function(socket) {  // od oklepaja ( dalje imamo arg
     
     socket.on("commandToArduinoSpinL", function(data) { // ko je socket ON in je posredovan preko connection-a: ukazArduinu (t.j. ukaz: išči funkcijo ukazArduinu)
         
-        zelenaVrednostLevo = -Speed; 
-        zelenaVrednostDesno = Speed;
+        zelenaVrednostLevo = -Speed/2; 
+        zelenaVrednostDesno = Speed/2;
         console.log("Command SpinL");
         ValuesForFuzzyBA[4] = 3;
 
@@ -1987,8 +2090,8 @@ io.sockets.on("connection", function(socket) {  // od oklepaja ( dalje imamo arg
     
 socket.on("commandToArduinoSpinR", function(data) { // ko je socket ON in je posredovan preko connection-a: ukazArduinu (t.j. ukaz: išči funkcijo ukazArduinu)
         
-        zelenaVrednostLevo = Speed; 
-        zelenaVrednostDesno = -Speed;
+        zelenaVrednostLevo = Speed/2; 
+        zelenaVrednostDesno = -Speed/2;
         console.log("Command SpinR");
         ValuesForFuzzyBA[4] = 4;
 

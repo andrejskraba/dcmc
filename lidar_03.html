@@ -1,0 +1,128 @@
+<html>
+<head>
+<meta http-equiv="content-type" content="application/javascript; charset=UTF-8">
+<title>web led switch</title>
+
+</head>
+<body onload="load();"> <!-- Tu pokličemo funkcijo load() za nastavitev spremenljivk ob odprtju html strani -->
+<script src="socket.io/socket.io.js"></script>
+<script src="http://code.jquery.com/jquery-1.8.0.min.js"></script>
+
+<div >
+
+<canvas id="cv" width = "500" height = "500" style="border:1px dashed #00c3c3; "></canvas>
+
+</div>
+
+<div class = "izpisRazred" id="izpis"></div>
+
+<script type="text/javascript" charset="UTF-8">
+
+var output = document.getElementById('izpis');
+var stevec = 0;
+var canvas, ctx; // spremenljivki za platno in kontekst (ctx)
+
+function load() { // on load of the html page, we initialize canvas
+    canvas = document.getElementById("cv");
+    ctx = canvas.getContext("2d");
+    ctx.lineWidth =   "1";
+    ctx.strokeStyle = "#ef0077";
+}
+
+function log(msg) { // funkcija za izpis sporočil z izvedenim pomikom (scroll)
+    var node=document.createElement("tr"); // ustvarimo spremenljivko node kot vrstico tabele za izpis
+    var textnode=document.createTextNode(stevec + " | " + msg); // ustvarimo element s tekstom (vrednost stanja)
+    node.appendChild(textnode); // dodamo izpis k "node" t.j. vrstici tabele
+    output.insertBefore(node,output.childNodes[0]); // output je spremenljivka div-a t.j. output = document.getElementById("output")
+    if (stevec > 9) { // če je vrstic več kot 10 (šteti začnemo z 0)
+        output.removeChild(output.childNodes[10],output.childNodes[10]); // odstranimo najstarejši zapis
+    }
+    stevec = stevec + 1; // povečamo števec števila izpisanih sporočil
+}
+
+var socket = io.connect('http://192.168.1.131:8080');
+socket.on('klientBeri', function(value) {
+
+    log(value[0]); // log to html page
+    ctx.clearRect(0,0,canvas.width, canvas.height); // brišemo platno -> c10learRect
+    //ctx.rect(200,200,100,100);
+    ctx.stroke();
+    ctx.beginPath(); // to vrstico moramo zapisati, da se prične izris vsebine na platnu znova
+
+    ctx.lineWidth=1; // set ticker line width
+    
+    for (var i=0;i!=360;i++)
+    {
+        var angle_rad = (i+90) * 3.14159265359 / 180.0;
+        var c = Math.cos(angle_rad);
+        var s = -Math.sin(angle_rad);
+        //var dist_mm = value[i][0] | (( value[i][1] & 0x3f) << 8);
+        var dist_mm = 0;
+        for (var j=0;j!=value[i][1];j++)
+        {
+            dist_mm += 256;
+        }
+        dist_mm += value[i][0];
+        dist_mm = dist_mm/5;
+        var dist_x = dist_mm*c;
+        var dist_y = dist_mm*s;
+        ctx.moveTo(250,250);
+        ctx.lineTo(250+dist_x,250+dist_y);
+    }
+
+    // on the top of the rectangle on canvas / front of the wheelchair
+    /*ctx.moveTo(204,200-value[0]); // s1 witdh of the front horizontal bar is 20, gap is 4
+    ctx.lineTo(224,200-value[0]); // s1
+    ctx.moveTo(228,200-value[1]); // sOptical1
+    ctx.lineTo(248,200-value[1]); // sOptical1
+    ctx.moveTo(252,200-value[0]); // sOptical2
+    ctx.lineTo(272,200-value[0]); // sOptical2
+    ctx.moveTo(276,200-value[1]); // s4
+    ctx.lineTo(294,200-value[1]); // s4
+    ctx.fillText(value[0], 208, 210); // s1 Print out the value
+    ctx.fillText(value[1], 230, 210); // sOptical1
+    ctx.fillText(value[0], 257, 210); // sOptical2
+    ctx.fillText(value[1], 277, 210); // s4
+    // on the left side of the rectangle on canvas / left side of the wheelchair
+    ctx.moveTo(200-value[0],204); // s2 width of the vertical bar is 28, gap is 4
+    ctx.lineTo(200-value[0],232); // s2
+    ctx.moveTo(200-value[1],236); // s3
+    ctx.lineTo(200-value[1],264); // s3
+    ctx.moveTo(200-value[0],268); // s9
+    ctx.lineTo(200-value[0],296); // s9
+    ctx.fillText(value[0], 203, 226); // s2 Print out the value
+    ctx.fillText(value[1], 203, 254); // s3
+    ctx.fillText(value[1], 203, 280); // s9
+    // on the right side of the rectangle on canvas / right side of the wheelchair
+    ctx.moveTo(300+value[0],204); // s5 width of the vertical bar is 28, gap is 4
+    ctx.lineTo(300+value[0],232); // s5
+    ctx.moveTo(300+value[1],236); // s6
+    ctx.lineTo(300+value[1],264); // s6
+    ctx.moveTo(300+value[0],268); // s12
+    ctx.lineTo(300+value[0],296); // s12
+    ctx.fillText(value[0], 280, 226); // Print out the value
+    ctx.fillText(value[1], 280, 254); // 
+    ctx.fillText(value[1], 280, 280); //
+    // on the bottom of the rectangle on canvas / back of the wheelchair
+    ctx.moveTo(204,300+value[0]); // s8 witdh of the back horizontal bar is 20, gap is 4
+    ctx.lineTo(224,300+value[0]); // s8
+    ctx.moveTo(228,300+value[1]); // s9
+    ctx.lineTo(248,300+value[1]); // s9
+    ctx.moveTo(252,300+value[0]); // s10
+    ctx.lineTo(272,300+value[0]); // s10
+    ctx.moveTo(276,300+value[1]); // s11
+    ctx.lineTo(294,300+value[1]); // s11
+    ctx.fillText(value[0], 208, 295); // s8 Print out the value
+    ctx.fillText(value[1], 230, 295); // s9
+    ctx.fillText(value[0], 257, 295); // s10
+    ctx.fillText(value[1], 277, 295); // s11*/
+
+    ctx.stroke(); // če želimo linijo prikazati na platnu moramo uporabiti "stroke()"
+    ctx.lineWidth=1;
+
+});
+
+</script>
+
+</body>
+</html>
