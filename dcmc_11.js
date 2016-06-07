@@ -2048,40 +2048,40 @@ function frequencyMeasureAndControlLeftRight() {
         //console.log("frequencyLeft " + frequencyLeft);
         //console.log("frequencyRight " + frequencyRight);
 
-        //PWMleft = GetPWMfromPIDLeft(zelenaVrednostLevo,frequencyLeft);
-        //PWMright = GetPWMfromPIDRight(zelenaVrednostDesno,frequencyRight);
+        PWMleft = GetPWMfromPIDLeft(zelenaVrednostLevo,frequencyLeft);
+        PWMright = GetPWMfromPIDRight(zelenaVrednostDesno,frequencyRight);
         //console.log("PWM for LEFT from PID is " + PWMleft);
         //console.log("PWM for RIGHT from PID is " + PWMright);
 
-        FuzzyPWMleft = getPWMfromFuzzyLeft(zelenaVrednostLevo,frequencyLeft);
-        FuzzyPWMright = getPWMfromFuzzyRight(zelenaVrednostDesno,frequencyRight);
+        //FuzzyPWMleft = getPWMfromFuzzyLeft(zelenaVrednostLevo,frequencyLeft);
+        //FuzzyPWMright = getPWMfromFuzzyRight(zelenaVrednostDesno,frequencyRight);
         //console.log("       PWM for LEFT from Fuzzy is " + FuzzyPWMleft);
         //console.log("               PWM for RIGHT from Fuzzy is " + FuzzyPWMright);
         
         
 
-        /*if (PWMleft > upperLimitPWM)
+        if (PWMleft > upperLimitPWM)
             PWMleft = upperLimitPWM;
         if (PWMleft < -upperLimitPWM)
             PWMleft = -upperLimitPWM;
         if (PWMright > upperLimitPWM)
             PWMright = upperLimitPWM;
         if (PWMright < -upperLimitPWM)
-            PWMright = -upperLimitPWM;*/
-        if (FuzzyPWMleft > upperLimitPWM)
+            PWMright = -upperLimitPWM;
+        /*if (FuzzyPWMleft > upperLimitPWM)
             FuzzyPWMleft = upperLimitPWM;
         if (FuzzyPWMleft < -upperLimitPWM)
             FuzzyPWMleft = -upperLimitPWM;
         if (FuzzyPWMright > upperLimitPWM)
             FuzzyPWMright = upperLimitPWM;
         if (FuzzyPWMright < -upperLimitPWM)
-            FuzzyPWMright = -upperLimitPWM;
+            FuzzyPWMright = -upperLimitPWM;*/
             
-        PWMleft = FuzzyPWMleft;
-        PWMright = FuzzyPWMright;
+        //PWMleft = FuzzyPWMleft;
+        //PWMright = FuzzyPWMright;
             
-        SetPWMLeft(FuzzyPWMleft);
-        SetPWMRight(FuzzyPWMright);    
+        SetPWMLeft(PWMleft);
+        SetPWMRight(PWMright);    
     }
     
     // **************************************************************************************

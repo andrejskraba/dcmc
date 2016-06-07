@@ -46,7 +46,13 @@ var LastTimer = Date.now();
 
 io.sockets.on('connection', function(socket) {
 
-    serialPort.open(function () {
+    serialPort.open(function (error) {
+        if (error)
+        {
+            console.log("Error code is = " + error);
+        }
+        else
+        {
      console.log('open');
      serialPort.on('data', function(data) {
          console.log("NEW  PACKAGE  RECEIVED")
@@ -143,6 +149,7 @@ io.sockets.on('connection', function(socket) {
 
          }
      });  
+        }
     });
 });
 
