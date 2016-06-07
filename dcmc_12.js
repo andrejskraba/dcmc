@@ -32,6 +32,10 @@ var Speed = 50;
 
 var ArduinoStarted = false;
 
+var arraySound = new Array();
+arraySound = [];
+var flushSoundArray = false;
+
 var USSensor = new Array();
     USSensor[0] = 0;
     USSensor[1] = 0;
@@ -55,23 +59,47 @@ var InfRedSen2Pin = "A4";
 var InfRedSen1;
 var InfRedSen2;
 
+var StopBySoundActive = false;
+
+var BA_Active = true;
+var Step_CTRL = false;
+
+var DistanceToMake = 50;
+var DistanceMadeLeft = 0;
+var DistanceMadeRight = 0;
+
 ////////////////////////////////////////////////LIDAR
+
+var SerialPort = require("serialport").SerialPort;
+var serialPortL = new SerialPort("/dev/ttyUSB0", {
+  baudRate: 115200, 
+  dataBits: 8, 
+  parity: 'none',
+  stopBits: 1, 
+  flowControl: false
+}, false); // this is the openImmediately flag [default is true]
+/*
 var com = require("serialport");
 
 var serialPortL = new com.SerialPort("/dev/ttyUSB0", {
     baudrate: 115200,
-    parser: com.parsers.raw
-}, false); // this is the openImmediately flag [default is true]
+    //parser: com.parsers.raw
+}, false); // this is the openImmediately flag [default is true]*/
 
 var index = 0;
 var init_level = 0;
-var readData = new Array(360);
+var LidarDist = new Array(360);
 for (var i=0;i!=360;i++)
 {
-    readData[i] = new Array(4);
+    LidarDist[i] = 200;
+}
+var readDataL = new Array(360);
+for (var i=0;i!=360;i++)
+{
+    readDataL[i] = new Array(4);
     for (var j=0;j!=4;j++)
     {
-        readData[i][j] = 0;
+        readDataL[i][j] = 0;
     }
 }
 var bspeed1,bspeed2;
@@ -80,11 +108,12 @@ var counter=0;
 var LastTimer = Date.now();
 
 serialPortL.open(function () {
-    console.log('open');
-    serialPortL.on('data', function(data) {
-         //console.log("NEW  PACKAGE  RECEIVED")
-         for (var i=0; i<data.length;i++)
-         {
+    console.log('open LIDAR');
+    serialPortL.on('data', function(data) 
+        {
+            //console.log("NEW  PACKAGE  RECEIVED")
+            for (var i=0; i<data.length;i++)
+            {
              if (init_level == 0)
              {
                  //console.log('init_level = ' + init_level);
@@ -111,43 +140,43 @@ serialPortL.open(function () {
                     bspeed1 = data[i];
                  else if (counter == 1)
                     bspeed2 = data[i];
-
+            
                  else if (counter == 2)
-                    readData[index*4+0][0] = data[i];
+                    readDataL[index*4+0][0] = data[i];
                  else if (counter == 3)
-                    readData[index*4+0][1] = data[i];
+                    readDataL[index*4+0][1] = data[i];
                  else if (counter == 4)
-                    readData[index*4+0][2] = data[i];
+                    readDataL[index*4+0][2] = data[i];
                  else if (counter == 5)
-                    readData[index*4+0][3] = data[i];
-
+                    readDataL[index*4+0][3] = data[i];
+            
                  else if (counter == 6)
-                    readData[index*4+1][0] = data[i];
+                    readDataL[index*4+1][0] = data[i];
                  else if (counter == 7)
-                    readData[index*4+1][1] = data[i];
+                    readDataL[index*4+1][1] = data[i];
                  else if (counter == 8)
-                    readData[index*4+1][2] = data[i];
+                    readDataL[index*4+1][2] = data[i];
                  else if (counter == 9)
-                    readData[index*4+1][3] = data[i];
-
+                    readDataL[index*4+1][3] = data[i];
+            
                  else if (counter == 10)
-                    readData[index*4+2][0] = data[i];
+                    readDataL[index*4+2][0] = data[i];
                  else if (counter == 11)
-                    readData[index*4+2][1] = data[i];
+                    readDataL[index*4+2][1] = data[i];
                  else if (counter == 12)
-                    readData[index*4+2][2] = data[i];
+                    readDataL[index*4+2][2] = data[i];
                  else if (counter == 13)
-                    readData[index*4+2][3] = data[i];
-
+                    readDataL[index*4+2][3] = data[i];
+            
                  else if (counter == 14)
-                    readData[index*4+3][0] = data[i];
+                    readDataL[index*4+3][0] = data[i];
                  else if (counter == 15)
-                    readData[index*4+3][1] = data[i];
+                    readDataL[index*4+3][1] = data[i];
                  else if (counter == 16)
-                    readData[index*4+3][2] = data[i];
+                    readDataL[index*4+3][2] = data[i];
                  else if (counter == 17)
-                    readData[index*4+3][3] = data[i];
-
+                    readDataL[index*4+3][3] = data[i];
+            
                  else if (counter == 18)
                     bchecksum1 = data[i];
                  else if (counter == 19)
@@ -162,24 +191,24 @@ serialPortL.open(function () {
                  }
                  //console.log('counter = ' + counter);
              }
-
+            
              /*if(data[i] == 0xFA)
                 console.log(parseInt(data[i]) + "***************************");
              else
                 console.log(parseInt(data[i])); */
-         }
-         //console.log(LastTimer - Date.now());
-         if (Date.now() - LastTimer > 100)
-         {
+            }
+            //console.log(LastTimer - Date.now());
+            //if (Date.now() - LastTimer > 100)
+            {
              //onsole.log("sending data");
              //socket.emit("klientBeri", readData);
-             LastTimer = Date.now();
-         }
-     });  
+             //LastTimer = Date.now();
+            }
+        });  
     });
 ////////////////////////////////////////////////LIDAR
 
-var SerialPort = require("serialport").SerialPort
+//var SerialPort = require("serialport").SerialPort
 var serialPort = new SerialPort("/dev/ttyACM1", {
   baudRate: 115200, 
   dataBits: 8, 
@@ -197,7 +226,7 @@ serialPort.open(function (error) {
   if (error) {
     console.log('failed to open: '+error);
   } else {
-    console.log('open');
+    console.log('open US');
     serialPort.on('data', function(data) { // call back when data is received
       readData += data.toString(); // append data to buffer
       // if the letters 'A' and 'B' are found on the buffer then isolate what's in the middle
@@ -238,8 +267,8 @@ serialPort.open(function (error) {
                 SensorBuffer = '';
             }
         }
-        if (ArduinoStarted)
-            ReadDistanceSensors();
+        //if (ArduinoStarted)
+          //  ReadDistanceSensors();
         readData = readData.substring(0,readData.length-1);
         //console.log(readData);
         readData = '';
@@ -279,7 +308,35 @@ board.on("ready", function() {
     
     InfRedSen1 = new five.Pin(InfRedSen1Pin);
     InfRedSen2 = new five.Pin(InfRedSen2Pin);
+    
+    var SoundPin = new five.Pin("A1");
+	five.Pin.read(SoundPin, function(error, value) {
+		if (!flushSoundArray)
+			arraySound.push(value);
+		else
+		{
+			arraySound = [];
+			arraySound.push(value);
+			flushSoundArray = false;
+		}
+	});
 
+    five.Pin.read(InfRedSen1, function(error, value) {
+    	var volts = value*0.0048828125; ;
+    	var distance = 13*Math.pow(volts,-1.10);
+    	if (distance > 40)
+    		distance = 40;
+    	InfRedDistanceLeft = (1.0-SmoothingWeightUS)*InfRedDistanceLeft + SmoothingWeightUS*distance;
+      	//console.log(distance);
+    });
+    five.Pin.read(InfRedSen2, function(error, value) {
+    	var volts = value*0.0048828125; ;
+    	var distance = 13*Math.pow(volts,-1.10);
+    	if (distance > 40)
+    		distance = 40;
+      	//console.log(distance);
+    	InfRedDistanceRight = (1.0-SmoothingWeightUS)*InfRedDistanceRight + SmoothingWeightUS*distance;
+    });
     
     this.digitalRead(LeftEncPin1, function(value) 
     { // LEFT funkcija se aktivira le, kadar se spremeni stanje; sicer bi bilo 1M čitanj na sekundo
@@ -389,8 +446,8 @@ board.on("ready", function() {
 var fs  = require("fs");
 
 var options = {
-  key: fs.readFileSync('agent2-key.pem'),
-  cert: fs.readFileSync('agent2-cert.pem')
+  key: fs.readFileSync('key.pem'),
+  cert: fs.readFileSync('cert.pem')
 };
 
 var https = require("https").createServer(options, handler) // tu je pomemben argument "handler", ki je kasneje uporabljen -> "function handler (req, res); v tej vrstici kreiramo server! (http predstavlja napo aplikacijo - app)
@@ -415,7 +472,7 @@ function handler (req, res) { // handler za "response"; ta handler "handla" le d
     
     case ('/') : // v primeru default strani
 
-    fs.readFile(__dirname + "/dcmc_01.html",
+    fs.readFile(__dirname + "/dcmc_02.html",
     function (err, data) { // callback funkcija za branje tekstne datoteke
         if (err) {
             res.writeHead(500);
@@ -428,7 +485,7 @@ function handler (req, res) { // handler za "response"; ta handler "handla" le d
      
     case ('/admin') :
                
-    fs.readFile(__dirname + "/dcmc_admin_01.html",
+    fs.readFile(__dirname + "/dcmc_admin_02.html",
     function (err, data) { // callback funkcija za branje tekstne datoteke
         if (err) {
             res.writeHead(500);
@@ -441,7 +498,7 @@ function handler (req, res) { // handler za "response"; ta handler "handla" le d
             
     case ('/adminspeech') : // v primeru, da je v web naslovu na koncu napisano /zahvala
                
-    fs.readFile(__dirname + "/dcmc_admin_speech_01.html",
+    fs.readFile(__dirname + "/dcmc_admin_speech_02.html",
     function (err, data) { // callback funkcija za branje tekstne datoteke
         if (err) {
             res.writeHead(500);
@@ -526,12 +583,12 @@ var IntegralCounterLeft = 0;
 var ErrorRight = new Array();
 var IntegralCounterRight = 0;
 var SummInterval = 3;
-var KpLeft = 0.03;
-var KiLeft = 0.03;
-var KdLeft = 0.02;
-var KpRight = 0.03;
-var KiRight = 0.03;
-var KdRight = 0.02;
+var KpLeft = 0.04;
+var KiLeft = 0.04;
+var KdLeft = 0.04;
+var KpRight = 0.04;
+var KiRight = 0.04;
+var KdRight = 0.04;
 var LeftLastMeasures = new Array();
 var LeftLastIntervals = new Array();
 var RightLastMeasures = new Array();
@@ -566,26 +623,6 @@ var timeIntervalRight;
 
 var InfRedDistanceLeft=0;
 var InfRedDistanceRight=0;
-function ReadDistanceSensors()
-{
-    
-    five.Pin.read(InfRedSen1, function(error, value) {
-	var volts = value*0.0048828125; ;
-	var distance = 65*Math.pow(volts,-1.10);
-	if (distance > 200)
-		distance = 200;
-	InfRedDistanceLeft = (1.0-SmoothingWeightUS)*InfRedDistanceLeft + SmoothingWeightUS*distance;
-  	//console.log(distance);
-    });
-    five.Pin.read(InfRedSen2, function(error, value) {
-	var volts = value*0.0048828125; ;
-	var distance = 65*Math.pow(volts,-1.10);
-	if (distance > 200)
-		distance = 200;
-  	//console.log(distance);
-	InfRedDistanceRight = (1.0-SmoothingWeightUS)*InfRedDistanceRight + SmoothingWeightUS*distance;
-    });
-}
 
 ////////////////////////////////////////// Fuzzy controller for frequency control begin
 var NFuzzyVars = 4;
@@ -1052,7 +1089,7 @@ function getPWMfromFuzzyRight(zelenaVrednostDesno,frequencyRight)
 
 ////////////////////////////////////////// Fuzzy controller for desired frequency change (brake assist) begin
 
-var NFuzzyVarsBA = 19;
+var NFuzzyVarsBA = 31;
 var NFuzzyOutputsBA = 4;
 var NFuzzySetsBA = new Array(NFuzzyVarsBA);
 NFuzzySetsBA[0] = 4;
@@ -1076,13 +1113,26 @@ NFuzzySetsBA[16] = 4;
 NFuzzySetsBA[17] = 4;
 NFuzzySetsBA[18] = 4;
 
+NFuzzySetsBA[19] = 9;
+NFuzzySetsBA[20] = 4;
+NFuzzySetsBA[21] = 4;
+NFuzzySetsBA[22] = 4;
+NFuzzySetsBA[23] = 4;
+NFuzzySetsBA[24] = 4;
+NFuzzySetsBA[25] = 4;
+NFuzzySetsBA[26] = 4;
+NFuzzySetsBA[27] = 4;
+NFuzzySetsBA[28] = 4;
+NFuzzySetsBA[29] = 4;
+NFuzzySetsBA[30] = 4;
+
 var AlphaCutBA = new Array(NFuzzyOutputsBA);
 for (var i=0;i!=NFuzzyOutputsBA;i++)
 {
     AlphaCutBA[i] = new Array(NFuzzySetsBA[i]);
 }
 
-var NRulesBA = 120;
+var NRulesBA = 168;
 var RBaseBA = new Array(NRulesBA);
 for (var i=0;i!=NRulesBA;i++)
 {
@@ -1109,6 +1159,18 @@ ValuesForFuzzyBA[15] = 0;
 ValuesForFuzzyBA[16] = 0;
 ValuesForFuzzyBA[17] = 0;
 ValuesForFuzzyBA[18] = 0;
+
+ValuesForFuzzyBA[19] = 0;
+ValuesForFuzzyBA[20] = 0;
+ValuesForFuzzyBA[21] = 0;
+ValuesForFuzzyBA[22] = 0;
+ValuesForFuzzyBA[23] = 0;
+ValuesForFuzzyBA[24] = 0;
+ValuesForFuzzyBA[25] = 0;
+ValuesForFuzzyBA[26] = 0;
+ValuesForFuzzyBA[28] = 0;
+ValuesForFuzzyBA[29] = 0;
+ValuesForFuzzyBA[30] = 0;
 
 var FSvaluesBA = new Array(NFuzzyVarsBA);
 for (var i=0;i!=NFuzzyVarsBA;i++)
@@ -1172,6 +1234,27 @@ RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 1;       
 RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 1;       RBaseBA[RN][18] = 2; RN++;
 RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 1;       RBaseBA[RN][18] = 1; RN++;
 RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 1;       RBaseBA[RN][18] = 0; RN++;
+
+RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 1;       RBaseBA[RN][19] = 3; RN++; //-15:45
+RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 1;       RBaseBA[RN][19] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 1;       RBaseBA[RN][19] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 1;       RBaseBA[RN][19] = 0; RN++;
+
+RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 1;       RBaseBA[RN][30] = 3; RN++; //-45:15
+RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 1;       RBaseBA[RN][30] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 1;       RBaseBA[RN][30] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 1;       RBaseBA[RN][30] = 0; RN++;
+
+RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 1;       RBaseBA[RN][20] = 2; RN++; //15:75
+RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 1;       RBaseBA[RN][20] = 1; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 1;       RBaseBA[RN][20] = 0; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 1;       RBaseBA[RN][20] = 0; RN++;
+
+RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 1;       RBaseBA[RN][29] = 2; RN++; //285:345
+RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 1;       RBaseBA[RN][29] = 1; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 1;       RBaseBA[RN][29] = 0; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 1;       RBaseBA[RN][29] = 0; RN++;
+
 //spinL
 RBaseBA[RN][0] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 3;       RBaseBA[RN][6] = 3; RN++;
 RBaseBA[RN][0] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 3;       RBaseBA[RN][6] = 2; RN++;
@@ -1187,6 +1270,16 @@ RBaseBA[RN][0] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 3;       
 RBaseBA[RN][0] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 3;       RBaseBA[RN][16] = 2; RN++;
 RBaseBA[RN][0] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 3;       RBaseBA[RN][16] = 1; RN++;
 RBaseBA[RN][0] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 3;       RBaseBA[RN][16] = 0; RN++;
+
+RBaseBA[RN][0] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 3;       RBaseBA[RN][29] = 3; RN++; //285:345
+RBaseBA[RN][0] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 3;       RBaseBA[RN][29] = 2; RN++;
+RBaseBA[RN][0] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 3;       RBaseBA[RN][29] = 1; RN++;
+RBaseBA[RN][0] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 3;       RBaseBA[RN][29] = 0; RN++;
+
+RBaseBA[RN][0] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 3;       RBaseBA[RN][28] = 3; RN++; //255:315
+RBaseBA[RN][0] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 3;       RBaseBA[RN][28] = 2; RN++;
+RBaseBA[RN][0] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 3;       RBaseBA[RN][28] = 1; RN++;
+RBaseBA[RN][0] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 3;       RBaseBA[RN][28] = 0; RN++;
 //spinR
 RBaseBA[RN][1] = 0;        RBaseBA[RN][2] = 0;        RBaseBA[RN][4] = 4;       RBaseBA[RN][9] = 3; RN++;
 RBaseBA[RN][1] = 1;        RBaseBA[RN][2] = 1;        RBaseBA[RN][4] = 4;       RBaseBA[RN][9] = 2; RN++;
@@ -1202,6 +1295,16 @@ RBaseBA[RN][1] = 0;        RBaseBA[RN][2] = 0;        RBaseBA[RN][4] = 4;       
 RBaseBA[RN][1] = 1;        RBaseBA[RN][2] = 1;        RBaseBA[RN][4] = 4;       RBaseBA[RN][13] = 2; RN++;
 RBaseBA[RN][1] = 2;        RBaseBA[RN][2] = 2;        RBaseBA[RN][4] = 4;       RBaseBA[RN][13] = 1; RN++;
 RBaseBA[RN][1] = 3;        RBaseBA[RN][2] = 3;        RBaseBA[RN][4] = 4;       RBaseBA[RN][13] = 0; RN++;
+
+RBaseBA[RN][1] = 0;        RBaseBA[RN][2] = 0;        RBaseBA[RN][4] = 4;       RBaseBA[RN][20] = 3; RN++; //15:75
+RBaseBA[RN][1] = 1;        RBaseBA[RN][2] = 1;        RBaseBA[RN][4] = 4;       RBaseBA[RN][20] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][2] = 2;        RBaseBA[RN][4] = 4;       RBaseBA[RN][20] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][2] = 3;        RBaseBA[RN][4] = 4;       RBaseBA[RN][20] = 0; RN++;
+
+RBaseBA[RN][1] = 0;        RBaseBA[RN][2] = 0;        RBaseBA[RN][4] = 4;       RBaseBA[RN][21] = 3; RN++; //45:105
+RBaseBA[RN][1] = 1;        RBaseBA[RN][2] = 1;        RBaseBA[RN][4] = 4;       RBaseBA[RN][21] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][2] = 2;        RBaseBA[RN][4] = 4;       RBaseBA[RN][21] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][2] = 3;        RBaseBA[RN][4] = 4;       RBaseBA[RN][21] = 0; RN++;
 //BkLeftL5R10
 RBaseBA[RN][0] = 0;        RBaseBA[RN][2] = 0;        RBaseBA[RN][4] = 7;       RBaseBA[RN][11] = 3; RN++;
 RBaseBA[RN][0] = 1;        RBaseBA[RN][2] = 1;        RBaseBA[RN][4] = 7;       RBaseBA[RN][11] = 2; RN++;
@@ -1253,15 +1356,25 @@ RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 5;       
 RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 5;       RBaseBA[RN][8] = 1; RN++;
 RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 5;       RBaseBA[RN][8] = 0; RN++;
 
-RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 1;       RBaseBA[RN][17] = 3; RN++;
-RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 1;       RBaseBA[RN][17] = 2; RN++;
-RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 1;       RBaseBA[RN][17] = 1; RN++;
-RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 1;       RBaseBA[RN][17] = 0; RN++;
+RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 5;       RBaseBA[RN][17] = 3; RN++;
+RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 5;       RBaseBA[RN][17] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 5;       RBaseBA[RN][17] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 5;       RBaseBA[RN][17] = 0; RN++;
 
-RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 1;       RBaseBA[RN][18] = 3; RN++;
-RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 1;       RBaseBA[RN][18] = 2; RN++;
-RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 1;       RBaseBA[RN][18] = 1; RN++;
-RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 1;       RBaseBA[RN][18] = 0; RN++;
+RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 5;       RBaseBA[RN][18] = 3; RN++;
+RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 5;       RBaseBA[RN][18] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 5;       RBaseBA[RN][18] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 5;       RBaseBA[RN][18] = 0; RN++;
+
+RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 5;       RBaseBA[RN][30] = 3; RN++; //-45:15
+RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 5;       RBaseBA[RN][30] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 5;       RBaseBA[RN][30] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 5;       RBaseBA[RN][30] = 0; RN++;
+
+RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 5;       RBaseBA[RN][29] = 3; RN++; //285:345
+RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 5;       RBaseBA[RN][29] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 5;       RBaseBA[RN][29] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 5;       RBaseBA[RN][29] = 0; RN++;
 //FwRightL10R5
 RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 6;       RBaseBA[RN][5] = 3; RN++;
 RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 6;       RBaseBA[RN][5] = 2; RN++;
@@ -1273,15 +1386,25 @@ RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 6;       
 RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 6;       RBaseBA[RN][8] = 1; RN++;
 RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 6;       RBaseBA[RN][8] = 0; RN++;
 
-RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 1;       RBaseBA[RN][17] = 3; RN++;
-RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 1;       RBaseBA[RN][17] = 2; RN++;
-RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 1;       RBaseBA[RN][17] = 1; RN++;
-RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 1;       RBaseBA[RN][17] = 0; RN++;
+RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 6;       RBaseBA[RN][17] = 3; RN++;
+RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 6;       RBaseBA[RN][17] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 6;       RBaseBA[RN][17] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 6;       RBaseBA[RN][17] = 0; RN++;
 
-RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 1;       RBaseBA[RN][18] = 3; RN++;
-RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 1;       RBaseBA[RN][18] = 2; RN++;
-RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 1;       RBaseBA[RN][18] = 1; RN++;
-RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 1;       RBaseBA[RN][18] = 0; RN++;
+RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 6;       RBaseBA[RN][18] = 3; RN++;
+RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 6;       RBaseBA[RN][18] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 6;       RBaseBA[RN][18] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 6;       RBaseBA[RN][18] = 0; RN++;
+
+RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 6;       RBaseBA[RN][19] = 3; RN++; //-15:45
+RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 6;       RBaseBA[RN][19] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 6;       RBaseBA[RN][19] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 6;       RBaseBA[RN][19] = 0; RN++;
+
+RBaseBA[RN][1] = 0;        RBaseBA[RN][3] = 0;        RBaseBA[RN][4] = 6;       RBaseBA[RN][20] = 3; RN++; //15:75
+RBaseBA[RN][1] = 1;        RBaseBA[RN][3] = 1;        RBaseBA[RN][4] = 6;       RBaseBA[RN][20] = 2; RN++;
+RBaseBA[RN][1] = 2;        RBaseBA[RN][3] = 2;        RBaseBA[RN][4] = 6;       RBaseBA[RN][20] = 1; RN++;
+RBaseBA[RN][1] = 3;        RBaseBA[RN][3] = 3;        RBaseBA[RN][4] = 6;       RBaseBA[RN][20] = 0; RN++;
 //fwd
 console.log(RN);
 }   //rules
@@ -1403,6 +1526,11 @@ var FSSenBAval1 = 0;
 var FSSenBAval2 = 20;
 var FSSenBAval3 = 40;
 var FSSenBAval4 = 100;
+
+var FSSenBAvalLR1 = 5;
+var FSSenBAvalLR2 = 25;
+var FSSenBAvalLR3 = 45;
+var FSSenBAvalLR4 = 100;
 ///////////////////////////////////// SENSOR 1
 for (var i=5;i!=17;i++)
 {
@@ -1421,39 +1549,78 @@ for (var i=5;i!=17;i++)
     FSvaluesBA[i][3][0] = FSSenBAval3;
     FSvaluesBA[i][3][1] = FSSenBAval4;
     FSvaluesBA[i][3][2] = FSSenBAval4;
+    
+    if (i == 6 || i == 7 || i == 16 || i == 9 || i == 10 || i == 13)
+    {
+        FSvaluesBA[i][0][0] = FSSenBAvalLR1;
+        FSvaluesBA[i][0][1] = FSSenBAvalLR1;
+        FSvaluesBA[i][0][2] = FSSenBAvalLR2;
+        
+        FSvaluesBA[i][1][0] = FSSenBAvalLR1;
+        FSvaluesBA[i][1][1] = FSSenBAvalLR2;
+        FSvaluesBA[i][1][2] = FSSenBAvalLR3;
+        
+        FSvaluesBA[i][2][0] = FSSenBAvalLR2;
+        FSvaluesBA[i][2][1] = FSSenBAvalLR3;
+        FSvaluesBA[i][2][2] = FSSenBAvalLR4;
+        
+        FSvaluesBA[i][3][0] = FSSenBAvalLR3;
+        FSvaluesBA[i][3][1] = FSSenBAvalLR4;
+        FSvaluesBA[i][3][2] = FSSenBAvalLR4;
+    }
 }
 
-FSvaluesBA[17][0][0] = 20;
-FSvaluesBA[17][0][1] = 20;
-FSvaluesBA[17][0][2] = 30;
 
-FSvaluesBA[17][1][0] = 20;
-FSvaluesBA[17][1][1] = 30;
-FSvaluesBA[17][1][2] = 40;
+FSvaluesBA[17][0][0] = 5;
+FSvaluesBA[17][0][1] = 5;
+FSvaluesBA[17][0][2] = 15;
 
-FSvaluesBA[17][2][0] = 30;
-FSvaluesBA[17][2][1] = 40;
+FSvaluesBA[17][1][0] = 5;
+FSvaluesBA[17][1][1] = 15;
+FSvaluesBA[17][1][2] = 30;
+
+FSvaluesBA[17][2][0] = 15;
+FSvaluesBA[17][2][1] = 30;
 FSvaluesBA[17][2][2] = 100;
 
-FSvaluesBA[17][3][0] = 40;
+FSvaluesBA[17][3][0] = 30;
 FSvaluesBA[17][3][1] = 100;
 FSvaluesBA[17][3][2] = 100;
 
-FSvaluesBA[18][0][0] = 20;
-FSvaluesBA[18][0][1] = 20;
-FSvaluesBA[18][0][2] = 30;
+FSvaluesBA[18][0][0] = 5;
+FSvaluesBA[18][0][1] = 5;
+FSvaluesBA[18][0][2] = 15;
 
-FSvaluesBA[18][1][0] = 20;
-FSvaluesBA[18][1][1] = 30;
-FSvaluesBA[18][1][2] = 40;
+FSvaluesBA[18][1][0] = 5;
+FSvaluesBA[18][1][1] = 15;
+FSvaluesBA[18][1][2] = 30;
 
-FSvaluesBA[18][2][0] = 30;
-FSvaluesBA[18][2][1] = 40;
+FSvaluesBA[18][2][0] = 15;
+FSvaluesBA[18][2][1] = 30;
 FSvaluesBA[18][2][2] = 100;
 
-FSvaluesBA[18][3][0] = 40;
+FSvaluesBA[18][3][0] = 30;
 FSvaluesBA[18][3][1] = 100;
 FSvaluesBA[18][3][2] = 100;
+// LIDAR
+for (var i=19;i!=31;i++)
+{
+    FSvaluesBA[i][0][0] = 0;
+    FSvaluesBA[i][0][1] = 0;
+    FSvaluesBA[i][0][2] = 300;
+    
+    FSvaluesBA[i][1][0] = 0;
+    FSvaluesBA[i][1][1] = 300;
+    FSvaluesBA[i][1][2] = 800;
+    
+    FSvaluesBA[i][2][0] = 300;
+    FSvaluesBA[i][2][1] = 800;
+    FSvaluesBA[i][2][2] = 4000;
+    
+    FSvaluesBA[i][3][0] = 800;
+    FSvaluesBA[i][3][1] = 4000;
+    FSvaluesBA[i][3][2] = 4000;
+}
 
 }   //Fuzzy sets
 
@@ -1604,6 +1771,9 @@ function getDesiredValuesFuzzyBA()
     }
 }
 
+//value = value*(1.0-weight) + tempvalue*weight;
+var DecayWeight = 0.1;
+
 function setDesiredDecay()
 {
     if (ValuesForFuzzyBA[4] == 0)   //STOP
@@ -1613,48 +1783,52 @@ function setDesiredDecay()
     } else
     if (ValuesForFuzzyBA[4] == 1)   //FORWARD
     {
-        zelenaVrednostLevo = Speed*(1-ValuesForFuzzyBA[1]);     // 1 - left fwd
-        zelenaVrednostDesno = Speed*(1-ValuesForFuzzyBA[3]);    // 3 - right fwd
+        zelenaVrednostLevo = zelenaVrednostLevo*(1-DecayWeight) + DecayWeight*Speed*(1-ValuesForFuzzyBA[1]);     // 1 - left fwd
+        zelenaVrednostDesno = zelenaVrednostDesno*(1-DecayWeight) + DecayWeight*Speed*(1-ValuesForFuzzyBA[3]);    // 3 - right fwd
     } else
     if (ValuesForFuzzyBA[4] == 2)   //BACKWARD
     {
-        zelenaVrednostLevo = -Speed*(1-ValuesForFuzzyBA[0]);    // 0 - left bkwd
-        zelenaVrednostDesno = -Speed*(1-ValuesForFuzzyBA[2]);   // 2 - right bkwd
+        zelenaVrednostLevo = zelenaVrednostLevo*(1-DecayWeight) - DecayWeight*Speed*(1-ValuesForFuzzyBA[0]);    // 0 - left bkwd
+        zelenaVrednostDesno = zelenaVrednostDesno*(1-DecayWeight) - DecayWeight*Speed*(1-ValuesForFuzzyBA[2]);   // 2 - right bkwd
     } else
     if (ValuesForFuzzyBA[4] == 3)   //SPIN LEFT
     {
-        zelenaVrednostLevo = -(Speed/2)*(1-ValuesForFuzzyBA[0]);
-        zelenaVrednostDesno = (Speed/2)*(1-ValuesForFuzzyBA[3]);
+        zelenaVrednostLevo = zelenaVrednostLevo*(1-DecayWeight) - DecayWeight*(Speed/2)*(1-ValuesForFuzzyBA[0]);
+        zelenaVrednostDesno = zelenaVrednostDesno*(1-DecayWeight) + DecayWeight*(Speed/2)*(1-ValuesForFuzzyBA[3]);
     } else
     if (ValuesForFuzzyBA[4] == 4)   //SPIN RIGHT
     {
-        zelenaVrednostLevo = (Speed/2)*(1-ValuesForFuzzyBA[1]);
-        zelenaVrednostDesno = -(Speed/2)*(1-ValuesForFuzzyBA[2]);
+        zelenaVrednostLevo = zelenaVrednostLevo*(1-DecayWeight) + DecayWeight*(Speed/2)*(1-ValuesForFuzzyBA[1]);
+        zelenaVrednostDesno = zelenaVrednostDesno*(1-DecayWeight) - DecayWeight*(Speed/2)*(1-ValuesForFuzzyBA[2]);
     } else
     if (ValuesForFuzzyBA[4] == 5)   //FwLeftL5R10
     {
-        zelenaVrednostLevo = Speed*(1-ValuesForFuzzyBA[1])/2;
-        zelenaVrednostDesno = Speed*(1-ValuesForFuzzyBA[3]);
+        zelenaVrednostLevo = zelenaVrednostLevo*(1-DecayWeight) + DecayWeight*Speed*(1-ValuesForFuzzyBA[1])/2;
+        zelenaVrednostDesno = zelenaVrednostDesno*(1-DecayWeight) + DecayWeight*Speed*(1-ValuesForFuzzyBA[3]);
     } else
     if (ValuesForFuzzyBA[4] == 6)   //FwLeftL10R5
     {
-        zelenaVrednostLevo = Speed*(1-ValuesForFuzzyBA[1]);
-        zelenaVrednostDesno = Speed*(1-ValuesForFuzzyBA[3])/2
+        zelenaVrednostLevo = zelenaVrednostLevo*(1-DecayWeight) + DecayWeight*Speed*(1-ValuesForFuzzyBA[1]);
+        zelenaVrednostDesno = zelenaVrednostDesno*(1-DecayWeight) + DecayWeight*Speed*(1-ValuesForFuzzyBA[3])/2
     } else
     if (ValuesForFuzzyBA[4] == 7)   //BkLeftL5R10
     {
-        zelenaVrednostLevo = -Speed*(1-ValuesForFuzzyBA[0])/2;
-        zelenaVrednostDesno = -Speed*(1-ValuesForFuzzyBA[2]);
+        zelenaVrednostLevo = zelenaVrednostLevo*(1-DecayWeight) - DecayWeight*Speed*(1-ValuesForFuzzyBA[0])/2;
+        zelenaVrednostDesno = zelenaVrednostDesno*(1-DecayWeight) - DecayWeight*Speed*(1-ValuesForFuzzyBA[2]);
     } else
     if (ValuesForFuzzyBA[4] == 8)   //BkLeftL10R5
     {
-        zelenaVrednostLevo = -Speed*(1-ValuesForFuzzyBA[0]);
-        zelenaVrednostDesno = -Speed*(1-ValuesForFuzzyBA[2])/2;
+        zelenaVrednostLevo = zelenaVrednostLevo*(1-DecayWeight) - DecayWeight*Speed*(1-ValuesForFuzzyBA[0]);
+        zelenaVrednostDesno = zelenaVrednostDesno*(1-DecayWeight) - DecayWeight*Speed*(1-ValuesForFuzzyBA[2])/2;
     } else                          // WHAT WE HAVE TO DO??? STOP!
     {
         zelenaVrednostLevo = 0;
         zelenaVrednostDesno = 0;
     }
+    if (Math.abs(zelenaVrednostLevo) < 0.1)
+        zelenaVrednostLevo = 0;
+    if (Math.abs(zelenaVrednostDesno) < 0.1)
+        zelenaVrednostDesno = 0;
 }
 
 ////////////////////////////////////////// Fuzzy controller for desired frequency change (brake assist) end
@@ -1911,6 +2085,7 @@ function SolenoidCheck()
            frequencyRight == 0 && zelenaVrednostDesno == 0 && ErrorRight[0] == 0 && ErrorRight[1] == 0 && ErrorRight[2] == 0 && 
            StateNotChanged == 0) // If we are on a stop and drived before
         {
+            StopBySoundActive = false;
             StateNotChanged = 1;                // Remember that we stopped
             console.log("SOLENOID TIMER SET!");
             var TimeoutSolenoid = setTimeout(SolenoidDown, 1000);    // And check again in 1 sec if something changed
@@ -1920,15 +2095,24 @@ function SolenoidCheck()
 
 function GetPWMfromPIDLeft(zelenaVrednostLevo,frequencyLeft)
 {
+    var temperror = 0;
+    if (Math.abs(zelenaVrednostLevo) > Math.abs(frequencyLeft))
+    {
+        temperror = zelenaVrednostLevo - frequencyLeft;
+    }
+    else
+    {
+        temperror = 2*(zelenaVrednostLevo - frequencyLeft);
+    }
     if (IntegralCounterLeft < SummInterval)
     {
-        ErrorLeft.unshift(zelenaVrednostLevo - frequencyLeft);
+        ErrorLeft.unshift(temperror);
         IntegralCounterLeft++;
     }
     else
     {
         ErrorLeft.pop();
-        ErrorLeft.unshift(zelenaVrednostLevo - frequencyLeft);
+        ErrorLeft.unshift(temperror);
     }
     if (IntegralCounterLeft == 1)
     {
@@ -1959,15 +2143,24 @@ function GetPWMfromPIDLeft(zelenaVrednostLevo,frequencyLeft)
 
 function GetPWMfromPIDRight(zelenaVrednostDesno,frequencyRight)
 {
+    var temperror = 0;
+    if (Math.abs(zelenaVrednostDesno) > Math.abs(frequencyLeft))
+    {
+        temperror = zelenaVrednostDesno - frequencyLeft;
+    }
+    else
+    {
+        temperror = 2*(zelenaVrednostDesno - frequencyLeft);
+    }
     if (IntegralCounterRight < SummInterval)
     {
-        ErrorRight.unshift(zelenaVrednostDesno - frequencyRight);
+        ErrorRight.unshift(temperror);
         IntegralCounterRight++;
     }
     else
     {
         ErrorRight.pop();
-        ErrorRight.unshift(zelenaVrednostDesno - frequencyRight);
+        ErrorRight.unshift(temperror);
     }
     //console.log("ErrorRight[0] = " + ErrorRight[0]);        
     if (IntegralCounterRight == 1)
@@ -1997,6 +2190,63 @@ function GetPWMfromPIDRight(zelenaVrednostDesno,frequencyRight)
     return PWMright;
 }
 
+function getSound()
+{
+    var volts = 0;
+    if (ArduinoStarted)
+    {
+    	var peakToPeak = 0;
+    	var signalMin = 0;
+    	var signalMax = 0;
+    	var arrayLength = arraySound.length;
+    	for (var i=0; i<arrayLength;i++)
+    	{
+    		if (i == 0)
+    		{
+    			signalMin = arraySound[i];
+    			signalMax = arraySound[i];
+    		}
+    		if (arraySound[i] < signalMin)
+    		{
+    			signalMin = arraySound[i];
+    		}
+    		else if (arraySound[i] > signalMax)
+    		{
+    			signalMax = arraySound[i];
+    		}
+    	}
+    	flushSoundArray = true;
+    	peakToPeak = signalMax - signalMin;  // max - min = peak-peak amplitude
+    	volts = (peakToPeak * 5.0) / 1024;  // convert to volts
+    	//console.log(volts);
+    }
+    return volts;
+}
+
+function SwitchPIDParameters()
+{
+    if (zelenaVrednostDesno == 0 || zelenaVrednostLevo == 0)
+    {
+        console.log("PID parameters increased!");
+        KpLeft = 0.2;
+        KiLeft = 0.2;
+        KdLeft = 0.2;
+        KpRight = 0.2;
+        KiRight = 0.2;
+        KdRight = 0.2;
+    }
+    else
+    {
+        console.log("PID parameters normal!");
+        KpLeft = 0.04;
+        KiLeft = 0.04;
+        KdLeft = 0.04;
+        KpRight = 0.04;
+        KiRight = 0.04;
+        KdRight = 0.04;
+    }
+}
+
 function frequencyMeasureAndControlLeftRight() {
 
     var timeNextLeft = Date.now();
@@ -2013,8 +2263,8 @@ function frequencyMeasureAndControlLeftRight() {
     {
         USSbuffer += 'S' + (i+1) + '\t' + parseFloat(USSensor[i]).toFixed(2) + '\t'
     }
-    console.log(USSbuffer);
-    console.log(InfRedDistanceLeft + '\t' + InfRedDistanceRight);
+    //console.log(USSbuffer);
+    //console.log(InfRedDistanceLeft + '\t' + InfRedDistanceRight);
     
     ValuesForFuzzyBA[5] = parseFloat(USSensor[0]);
     ValuesForFuzzyBA[6] = parseFloat(USSensor[1]);
@@ -2030,7 +2280,84 @@ function frequencyMeasureAndControlLeftRight() {
     ValuesForFuzzyBA[16] = parseFloat(USSensor[11]);
     ValuesForFuzzyBA[17] = parseFloat(InfRedDistanceLeft);
     ValuesForFuzzyBA[18] = parseFloat(InfRedDistanceRight);
-  
+    
+    for (var i=0;i!=360;i++)
+    {
+        var readDataL_i = (i+180)%360;
+        LidarDist[i] = 0;
+        for (var j=0;j!=readDataL[readDataL_i][1];j++)
+        {
+            LidarDist[i] += 256;
+        }
+        LidarDist[i] += readDataL[readDataL_i][0];
+        if (LidarDist[i] > 4000)
+            LidarDist[i] = 4000;
+    }
+    var AvgDistL = Array(12);
+    for (var i=0;i!=12;i++)
+    {
+        AvgDistL[i] = 0;
+    }
+    for (var i=0;i!=360;i++)
+    {
+        if ((i<45 && i>0) || (i>345 && i<360))
+        {
+            AvgDistL[0] += LidarDist[i];
+        }
+        if (i<75 & i>15)
+        {
+            AvgDistL[1] += LidarDist[i];
+        }
+        if (i<105 & i>45)
+        {
+            AvgDistL[2] += LidarDist[i];
+        }
+        if (i<135 & i>75)
+        {
+            AvgDistL[3] += LidarDist[i];
+        }
+        if (i<165 & i>105)
+        {
+            AvgDistL[4] += LidarDist[i];
+        }
+        if (i<195 & i>135)
+        {
+            AvgDistL[5] += LidarDist[i];
+        }
+        if (i<225 & i>165)
+        {
+            AvgDistL[6] += LidarDist[i];
+        }
+        if (i<255 & i>195)
+        {
+            AvgDistL[7] += LidarDist[i];
+        }
+        if (i<285 & i>225)
+        {
+            AvgDistL[8] += LidarDist[i];
+        }
+        if (i<315 & i>255)
+        {
+            AvgDistL[9] += LidarDist[i];
+        }
+        if (i<345 & i>285)
+        {
+            AvgDistL[10] += LidarDist[i];
+        }
+        if ((i<15 && i>0) || (i>315 && i<360))
+        {
+            AvgDistL[11] += LidarDist[i];
+        }
+    }
+    for (var i=0;i!=12;i++)
+    {
+        AvgDistL[i] /= 60;
+    }
+    //console.log(AvgDistL[0].toFixed(2) + '\t' + AvgDistL[1].toFixed(2) + '\t' + AvgDistL[2].toFixed(2) + '\t' + AvgDistL[3].toFixed(2) + '\t' + AvgDistL[4].toFixed(2) + '\t' + AvgDistL[5].toFixed(2) + '\t' + AvgDistL[6].toFixed(2) + '\t' + AvgDistL[7].toFixed(2) + '\t' + AvgDistL[8].toFixed(2) + '\t' + AvgDistL[9].toFixed(2) + '\t' + AvgDistL[10].toFixed(2) + '\t' + AvgDistL[11].toFixed(2));
+    for (var i=19;i!=31;i++)
+    {
+        ValuesForFuzzyBA[i] = parseFloat(AvgDistL[i-19]);
+    }
     // **************************************************************************************
     // Kontrolni algoritem ZAČETEK
     // **************************************************************************************
@@ -2040,9 +2367,43 @@ function frequencyMeasureAndControlLeftRight() {
     if (STARTctrl == 1) { // le v primeru, da želene vrednosti v smeri nazaj nismo podali izvedemo algoritem za naprej
 
         //socket.emit("ukazArduinu", {"stevilkaUkaza": stevilkaUkaza, "pinNo": 5, "valuePWM": 1}); // za vsak primer pin naprej postavimo na 0
+        console.log(USSbuffer);
+        console.log(InfRedDistanceLeft + '\t' + InfRedDistanceRight);
+        console.log(AvgDistL[0].toFixed(2) + '\t' + AvgDistL[1].toFixed(2) + '\t' + AvgDistL[2].toFixed(2) + '\t' + AvgDistL[3].toFixed(2) + '\t' + AvgDistL[4].toFixed(2) + '\t' + AvgDistL[5].toFixed(2) + '\t' + AvgDistL[6].toFixed(2) + '\t' + AvgDistL[7].toFixed(2) + '\t' + AvgDistL[8].toFixed(2) + '\t' + AvgDistL[9].toFixed(2) + '\t' + AvgDistL[10].toFixed(2) + '\t' + AvgDistL[11].toFixed(2));
         console.log('ValuesForFuzzyBA[0] = ' + ValuesForFuzzyBA[0] + ' ValuesForFuzzyBA[1] = ' + ValuesForFuzzyBA[1] + ' ValuesForFuzzyBA[2] = ' + ValuesForFuzzyBA[2] + ' ValuesForFuzzyBA[3] = ' + ValuesForFuzzyBA[3] + ' ValuesForFuzzyBA[4] = ' + ValuesForFuzzyBA[4]);
-        getDesiredValuesFuzzyBA();
-        setDesiredDecay();
+        
+        SwitchPIDParameters();
+        
+        if (BA_Active)
+        {
+            getDesiredValuesFuzzyBA();
+            setDesiredDecay();
+        }
+        else if (Step_CTRL)
+        {
+            DistanceMadeLeft += Math.abs(frequencyLeft);
+            DistanceMadeRight += Math.abs(frequencyRight);
+            console.log(DistanceMadeLeft + '\t' + DistanceMadeRight);
+            if (DistanceMadeLeft > DistanceToMake || DistanceMadeRight > DistanceToMake)
+            {
+                zelenaVrednostLevo = 0;
+                zelenaVrednostDesno = 0;
+            }
+        }
+        
+        var SoundLevel = getSound();
+        if (SoundLevel > 0.15)
+        {
+            StopBySoundActive = true;
+            console.log("STOP BY SOUND, LEVEL IS " + SoundLevel);
+        }
+        if (StopBySoundActive)
+        {
+            console.log("DESIRED SET TO 0 BY SOUND LEVEL " + SoundLevel);
+            zelenaVrednostLevo = 0;
+            zelenaVrednostDesno = 0;
+        }
+        
         console.log("želena Levo " + zelenaVrednostLevo);
         console.log("želena Desno " + zelenaVrednostDesno);
         //console.log("frequencyLeft " + frequencyLeft);
@@ -2082,6 +2443,11 @@ function frequencyMeasureAndControlLeftRight() {
             
         SetPWMLeft(FuzzyPWMleft);
         SetPWMRight(FuzzyPWMright);    
+    }
+    else
+    {
+        DistanceMadeLeft = 0;
+        DistanceMadeRight = 0;
     }
     
     // **************************************************************************************
@@ -2145,14 +2511,6 @@ io.sockets.on("connection", function(socket) {  // od oklepaja ( dalje imamo arg
         
 	});
 	
-	if (Date.now() - LastTimer > 100)
-    {
-         //onsole.log("sending data");
-         socket.emit("LidarData", readData);
-         LastTimer = Date.now();
-    }
-    
-    
     socket.on("commandToArduinoFW", function(data) { // ko je socket ON in je posredovan preko connection-a: ukazArduinu (t.j. ukaz: išči funkcijo ukazArduinu)
 
         zelenaVrednostLevo = Speed; 
@@ -2387,9 +2745,61 @@ io.sockets.on("connection", function(socket) {  // od oklepaja ( dalje imamo arg
         
     });
     
-    
+    socket.on("ukazArduinuBASwitch", function() {
+        
+        zelenaVrednostLevo = 0; 
+        zelenaVrednostDesno = 0;
+        console.log("Command BA Switch");
+        ValuesForFuzzyBA[4] = 0;
+        BA_Active = 1-BA_Active;
+        Step_CTRL = 0;
+
+        if (refreshClientGui == 1) {
+        socket.emit("refreshClientGUInumValues", {
+            "zelenaVrednostNaprej": zelenaVrednostNaprej,
+            "zelenaVrednostNazaj": zelenaVrednostNazaj,
+            "zelenaVrednostSpinLevo": zelenaVrednostSpinLevo, 
+            "zelenaVrednostSpinDesno": zelenaVrednostSpinDesno,
+            "zelenaVrednostHzLevo": zelenaVrednostHzLevo, 
+            "zelenaVrednostHzDesno": zelenaVrednostHzDesno,
+            "PWMfw": PWMfw,
+            "PWMbk": PWMbk,
+            "PWMleft": PWMleft,
+            "PWMright": PWMright,
+        });
+        }
+
+        STARTctrl = 1; 
+        
+    });
                       
-    
+    socket.on("ukazArduinuStepCTRL", function() {
+        
+        zelenaVrednostLevo = 0; 
+        zelenaVrednostDesno = 0;
+        console.log("Command Step Control");
+        ValuesForFuzzyBA[4] = 0;
+        Step_CTRL = 1-Step_CTRL;
+        BA_Active = 1-Step_CTRL;
+
+        if (refreshClientGui == 1) {
+        socket.emit("refreshClientGUInumValues", {
+            "zelenaVrednostNaprej": zelenaVrednostNaprej,
+            "zelenaVrednostNazaj": zelenaVrednostNazaj,
+            "zelenaVrednostSpinLevo": zelenaVrednostSpinLevo, 
+            "zelenaVrednostSpinDesno": zelenaVrednostSpinDesno,
+            "zelenaVrednostHzLevo": zelenaVrednostHzLevo, 
+            "zelenaVrednostHzDesno": zelenaVrednostHzDesno,
+            "PWMfw": PWMfw,
+            "PWMbk": PWMbk,
+            "PWMleft": PWMleft,
+            "PWMright": PWMright,
+        });
+        }
+
+        STARTctrl = 1; 
+        
+    });
     
 
     //},1);
@@ -2416,8 +2826,10 @@ function ControlAndDisplayLeftRight() {
     socket.emit("readOutFrequencyLeftRight", {"leftCount": numberOfCountsLeft, "frequencyLeft": frequencyLeft, "rightCount": numberOfCountsRight, "frequencyRight": frequencyRight});
     
         
-    
-    
+    //console.log("Sending LIDAR data");
+    //socket.emit("LidarData", readDataL);
+    LastTimer = Date.now();
+
     
     socket.emit("readOutControlLeftRight", {"PWMleft": PWMleft, "PWMright": PWMright});
  

@@ -1132,14 +1132,14 @@ var final_trs;
       if (event.results[i].isFinal) {
         final_transcript += event.results[i][0].transcript;
         final_trs = event.results[i][0].transcript;
-    interim_transcript += event.results[i][0].transcript;
+        interim_transcript += event.results[i][0].transcript;
         //tempx = event.results[i][0].transcript; 
         //log(event.results[i][0].transcript);
       } else {
         interim_transcript += event.results[i][0].transcript;
       }
     } 
-
+    
     ReplaceContentInContainer("speech", interim_transcript);
 
 
@@ -1150,6 +1150,45 @@ var final_trs;
     //log("interim" + interim_transcript);
 
     log(interim_transcript);
+    
+    if (interim_transcript.search("spin bright") >= 0 || interim_transcript.search("spin right") >= 0 || interim_transcript.search("right") >= 0|| interim_transcript.search("bright") >= 0)
+    {
+        socket.emit("commandToArduinoSpinR", 1);
+    }
+    if (interim_transcript.search("spin left") >= 0 || interim_transcript.search("left") >= 0)
+    {
+        socket.emit("commandToArduinoSpinL", 1);
+    }
+    if (interim_transcript.search("back") >= 0 || interim_transcript.search("beck") >= 0 || interim_transcript.search("Beck") >= 0 || interim_transcript.search("go back") >= 0 || interim_transcript.search("go beck") >= 0 || interim_transcript.search("go Beck") >= 0)
+    {
+        socket.emit("commandToArduinoBK", 1);
+    }
+    if (interim_transcript.search("go") >= 0 || interim_transcript.search("forward") >= 0 || interim_transcript.search("move") >= 0 || interim_transcript.search("Ford") >= 0)
+    {
+        socket.emit("commandToArduinoFW", 1);
+    }
+    if (interim_transcript.search("back right") >= 0 || interim_transcript.search("beck right") >= 0 || interim_transcript.search("Beck right") >= 0 || interim_transcript.search("back bright") >= 0 || interim_transcript.search("beck bright") >= 0 || interim_transcript.search("Beck bright") >= 0)
+    {
+        socket.emit("commandToArduinoTurnBkRightL10R5", 1);
+    }
+    if (interim_transcript.search("back left") >= 0 || interim_transcript.search("beck left") >= 0 || interim_transcript.search("Beck left") >= 0)
+    {
+        socket.emit("commandToArduinoTurnBkLeftL5R10", 1);
+    }
+    if (interim_transcript.search("go right") >= 0 || interim_transcript.search("forward right") >= 0 || interim_transcript.search("move right") >= 0 || interim_transcript.search("go bright") >= 0 || interim_transcript.search("forward bright") >= 0 || interim_transcript.search("move bright") >= 0)
+    {
+        socket.emit("commandToArduinoTurnFwRightL10R5", 1);
+    }
+    if (interim_transcript.search("go left") >= 0 || interim_transcript.search("forward left") >= 0 || interim_transcript.search("move left") >= 0)
+    {
+        socket.emit("commandToArduinoTurnFwLeftL5R10", 1);
+    }
+    if (interim_transcript.search("stop") >= 0 || interim_transcript.search("break") >= 0 || interim_transcript.search("house") >= 0 || interim_transcript.search("step") >= 0 || interim_transcript.search("stuck") >= 0 || interim_transcript.search("brake") >= 0 || interim_transcript.search("stuff") >= 0)
+    {
+        socket.emit("ukazArduinuSTOP");
+    }
+    
+    /*
     //log(strcmp(interim_transcript,"house"));
     //log(strcmp(interim_transcript," house"));
 // kodiranje ukazov - kot na numerični tipkovnici -> 8=naprej 2=nazaj 4=levo 6=desno 5=stop
@@ -1158,7 +1197,7 @@ var final_trs;
         // STOP
         // *********************************************************************    
         //if(interim_transcript == "stoj" || interim_transcript == " stoj" || interim_transcript == "stoji" || interim_transcript == " stoji" || interim_transcript == "stoje" || interim_transcript == " stoje")
-                if(interim_transcript == "break" || interim_transcript == " break" || interim_transcript == "house" || interim_transcript == "how's" || interim_transcript == " how's" || interim_transcript == " house" || interim_transcript == "Red Sox" || interim_transcript == " Red Sox")
+        if(interim_transcript == "break" || interim_transcript == " break" || interim_transcript == "house" || interim_transcript == "house house" || interim_transcript == "break break" || interim_transcript == " house" || interim_transcript == "Red Sox" || interim_transcript == " Red Sox")
         {
 //            log("confidence = " + event.results[i][0].confidence);
             //ReplaceContentInContainer("speech", event.results[i][0].confidence);
@@ -1175,7 +1214,7 @@ var final_trs;
         // *********************************************************************
         // Naprej
         // *********************************************************************
-        if(interim_transcript == "go" || interim_transcript == " go") // ker napravimo premor med govorom moramo upoštevati tudi presledek+1, t.j. " 1"
+        if(interim_transcript == "go" || interim_transcript == " go" || interim_transcript == "go go" || interim_transcript == "go go go" || interim_transcript == "forward") // ker napravimo premor med govorom moramo upoštevati tudi presledek+1, t.j. " 1"
         {
 //            log("confidence = " + event.results[i][0].confidence);
             //log("GO");
@@ -1189,7 +1228,7 @@ var final_trs;
         // *********************************************************************
         // Nazaj
         // *********************************************************************
-        if(interim_transcript == "back" || interim_transcript == " back" || interim_transcript == "beck" || interim_transcript == " beck" || interim_transcript == "Beck" || interim_transcript == " Beck") // ker napravimo premor med govorom moramo upoštevati tudi presledek+1, t.j. " 1"
+        if(interim_transcript == "back" || interim_transcript == " back" || interim_transcript == "beck" || interim_transcript == " beck" || interim_transcript == "Beck" || interim_transcript == " Beck" || interim_transcript == " back back" || interim_transcript == "beck beck") // ker napravimo premor med govorom moramo upoštevati tudi presledek+1, t.j. " 1"
         {
 //            log("confidence = " + event.results[i][0].confidence);
             //log("BACK");
@@ -1201,7 +1240,7 @@ var final_trs;
         // *********************************************************************
         // Spin Levo
         // *********************************************************************
-        if(interim_transcript == "left" || interim_transcript == " left" || interim_transcript == "les" || interim_transcript == " les" || interim_transcript == "less" || interim_transcript == " less" || interim_transcript == "lest" || interim_transcript == " lest" ) // ker napravimo premor med govorom moramo upoštevati tudi presledek+1, t.j. " 1"
+        if(interim_transcript == "left" || interim_transcript == " left" || interim_transcript == "les" || interim_transcript == " les" || interim_transcript == "less" || interim_transcript == " less" || interim_transcript == "lest" || interim_transcript == " lest" || interim_transcript == "left left" || interim_transcript == "less less" ) // ker napravimo premor med govorom moramo upoštevati tudi presledek+1, t.j. " 1"
         {
 //            log("confidence = " + event.results[i][0].confidence);
             //log("LEFT");
@@ -1213,7 +1252,7 @@ var final_trs;
         // *********************************************************************
         // Spin Desno
         // *********************************************************************
-        if(interim_transcript == "right" || interim_transcript == " right" || interim_transcript == "check" || interim_transcript == " check" || interim_transcript == "run" || interim_transcript == " run" ) // ker napravimo premor med govorom moramo upoštevati tudi presledek+1, t.j. " 1"
+        if(interim_transcript == "right" || interim_transcript == " right" || interim_transcript == "check" || interim_transcript == " check" || interim_transcript == "run" || interim_transcript == " run" || interim_transcript == "right right") // ker napravimo premor med govorom moramo upoštevati tudi presledek+1, t.j. " 1"
         {
 //            log("confidence = " + event.results[i][0].confidence);
             //log("RIGHT");
@@ -1270,7 +1309,7 @@ var final_trs;
             //toggle4 = 1; // za pravi preklop gumba
             socket.emit("commandToArduinoTurnBkRightL10R5", 1);
             };            
-      
+      */
 
 
 
