@@ -190,60 +190,260 @@ var final_trs;
 
   recognition.onresult = function(event) {
     var interim_transcript = '';
-    // interim_transcript += event.results[i][0].transcript;
     for (var i = event.resultIndex; i < event.results.length; ++i) {
       if (event.results[i].isFinal) {
         final_transcript += event.results[i][0].transcript;
         final_trs = event.results[i][0].transcript;
-    interim_transcript += event.results[i][0].transcript;
-        //tempx = event.results[i][0].transcript; 
-        //log(event.results[i][0].transcript);
+        interim_transcript += event.results[i][0].transcript;
       } else {
         interim_transcript += event.results[i][0].transcript;
       }
     } 
     
+    var NOfWords = 0;
+    var ResultsMass = Array();
+    var NOfResults = Array();
+    var TotalNVariants = 1;
+    for (var i=event.resultIndex;i!=event.results.length;i++)
+    {
+        if (NOfWords > 2)
+            break;
+        var tempNRes = 0;
+        console.log(event.results[i].length);
+        for (var j=0;j!=event.results[i].length;j++)
+        {
+            console.log(event.results[i][j].transcript);
+            console.log(event.results[i][j].confidence);
+            if (event.results[i][j].confidence < 0.10)
+                break;
+            tempNRes ++;
+        }
+        NOfResults.push(event.results[i].length);
+        if (NOfResults[NOfWords] > 3)
+            NOfResults[NOfWords] = 3;
+        TotalNVariants *= NOfResults[NOfWords];
+        //console.log(TotalNVariants);
+        NOfWords++;
+    }
+    var Indexes = Array(NOfWords);
+    for (var i=0;i!=NOfWords;i++)
+    {
+        Indexes[i] = 0;
+    }
+    var temp_transcript = '';
+    for (var i=0;i!=TotalNVariants;i++)
+    {
+        for (var j=0;j!=NOfWords;j++)
+        {
+            temp_transcript += event.results[event.resultIndex + j][Indexes[j]].transcript;
+        }
+        Indexes[NOfWords-1]++;
+        for (var j=0;j!=NOfWords-1;j++)
+        {
+            if (Indexes[j] == NOfResults[j])
+            {
+                Indexes[j] = 0;
+                Indexes[j+1]++;
+            }
+        }
+        ResultsMass.push(temp_transcript);
+        //console.log(ResultsMass[i]);
+    }
+    
     ReplaceContentInContainer("speech", interim_transcript);
     
-    if (interim_transcript.search("spin bright") >= 0 || interim_transcript.search("spin right") >= 0 || interim_transcript.search("right") >= 0|| interim_transcript.search("bright") >= 0)
+    for (var i=0;i!=TotalNVariants;i++)
     {
-        socket.emit("commandToArduinoSpinR", interim_transcript);
-    }
-    if (interim_transcript.search("spin left") >= 0 || interim_transcript.search("left") >= 0)
-    {
-        socket.emit("commandToArduinoSpinL", interim_transcript);
-    }
-    if (interim_transcript.search("back") >= 0 || interim_transcript.search("beck") >= 0 || interim_transcript.search("Beck") >= 0 || interim_transcript.search("go back") >= 0 || interim_transcript.search("go beck") >= 0 || interim_transcript.search("go Beck") >= 0)
-    {
-        socket.emit("commandToArduinoBK", interim_transcript);
-    } else
-    if (interim_transcript.search("go") >= 0 || interim_transcript.search("forward") >= 0 || interim_transcript.search("move") >= 0 || interim_transcript.search("Ford") >= 0)
-    {
-        socket.emit("commandToArduinoFW", interim_transcript);
-    }
-    if (interim_transcript.search("back right") >= 0 || interim_transcript.search("beck right") >= 0 || interim_transcript.search("Beck right") >= 0 || interim_transcript.search("back bright") >= 0 || interim_transcript.search("beck bright") >= 0 || interim_transcript.search("Beck bright") >= 0)
-    {
-        socket.emit("commandToArduinoTurnBkRightL10R5", interim_transcript);
-    }
-    if (interim_transcript.search("back left") >= 0 || interim_transcript.search("beck left") >= 0 || interim_transcript.search("Beck left") >= 0)
-    {
-        socket.emit("commandToArduinoTurnBkLeftL5R10", interim_transcript);
-    }
-    if (interim_transcript.search("go right") >= 0 || interim_transcript.search("forward right") >= 0 || interim_transcript.search("move right") >= 0 || interim_transcript.search("go bright") >= 0 || interim_transcript.search("forward bright") >= 0 || interim_transcript.search("move bright") >= 0)
-    {
-        socket.emit("commandToArduinoTurnFwRightL10R5", interim_transcript);
-    }
-    if (interim_transcript.search("go left") >= 0 || interim_transcript.search("forward left") >= 0 || interim_transcript.search("move left") >= 0)
-    {
-        socket.emit("commandToArduinoTurnFwLeftL5R10", interim_transcript);
-    }
-    if (interim_transcript.search("manual") >= 0 || interim_transcript.search("manual control") >= 0 || interim_transcript.search("step control") >= 0 || interim_transcript.search("by step") >= 0 || interim_transcript.search("manual step") >= 0)
-    {
-        socket.emit("ukazArduinuStepCTRL", interim_transcript);
-    }
-    if (interim_transcript.search("stop") >= 0 || interim_transcript.search("break") >= 0 || interim_transcript.search("house") >= 0 || interim_transcript.search("step") >= 0 || interim_transcript.search("stuck") >= 0 || interim_transcript.search("brake") >= 0 || interim_transcript.search("stuff") >= 0)
-    {
-        socket.emit("ukazArduinuSTOP", interim_transcript);
+        var command_sent = 0;
+        interim_transcript = ResultsMass[i];
+        if (interim_transcript.search("spin bright") >= 0 || 
+            interim_transcript.search("spin right") >= 0 || 
+            interim_transcript.search("right") >= 0 || 
+            interim_transcript.search("arright") >= 0 || 
+            interim_transcript.search("write") >= 0 || 
+            interim_transcript.search("bright") >= 0)
+        {
+            socket.emit("commandToArduinoSpinR", interim_transcript);
+            command_sent = 1;
+        }
+        if (interim_transcript.search("spin left") >= 0 ||
+            interim_transcript.search("let") >= 0 ||
+            interim_transcript.search("less") >= 0 || 
+            interim_transcript.search("like") >= 0 || 
+            interim_transcript.search("links") >= 0 || 
+            interim_transcript.search("left") >= 0)
+        {
+            socket.emit("commandToArduinoSpinL", interim_transcript);
+            command_sent = 1;
+        }
+        if (interim_transcript.search("back") >= 0 || 
+            interim_transcript.search("beck") >= 0 || 
+            interim_transcript.search("Beck") >= 0 || 
+            interim_transcript.search("go back") >= 0 || 
+            interim_transcript.search("go beck") >= 0 || 
+            interim_transcript.search("go bag") >= 0 ||
+            interim_transcript.search("gold back") >= 0 ||
+            interim_transcript.search("gold beck") >= 0 ||
+            interim_transcript.search("gold Beck") >= 0 ||
+            interim_transcript.search("gold bag") >= 0 ||
+            interim_transcript.search("goat back") >= 0 ||
+            interim_transcript.search("goat beck") >= 0 ||
+            interim_transcript.search("goat Beck") >= 0 ||
+            interim_transcript.search("goat bag") >= 0 ||
+            interim_transcript.search("good back") >= 0 ||
+            interim_transcript.search("good beck") >= 0 ||
+            interim_transcript.search("good Beck") >= 0 ||
+            interim_transcript.search("good bag") >= 0 ||
+            interim_transcript.search("Google back") >= 0 ||
+            interim_transcript.search("Google beck") >= 0 ||
+            interim_transcript.search("Google Beck") >= 0 ||
+            interim_transcript.search("Google bag") >= 0 ||
+            interim_transcript.search("no back") >= 0 ||
+            interim_transcript.search("no beck") >= 0 ||
+            interim_transcript.search("no Beck") >= 0 ||
+            interim_transcript.search("no bag") >= 0 ||
+            interim_transcript.search("go Beck") >= 0)
+        {
+            socket.emit("commandToArduinoBK", interim_transcript);
+            command_sent = 1;
+        } else
+        if (interim_transcript.search("go") >= 0 || 
+            interim_transcript.search("forward") >= 0 || 
+            interim_transcript.search("move") >= 0 || 
+            interim_transcript.search("ford") >= 0 || 
+            interim_transcript.search("gold") >= 0 ||
+            interim_transcript.search("goat") >= 0 || 
+            interim_transcript.search("good") >= 0 || 
+            interim_transcript.search("ghost") >= 0 || 
+            interim_transcript.search("Google") >= 0 || 
+            interim_transcript.search("mood") >= 0 || 
+            interim_transcript.search("gold") >= 0 || 
+            interim_transcript.search("4 hour") >= 0 || 
+            interim_transcript.search("four hour") >= 0 || 
+            interim_transcript.search("no") >= 0 || 
+            interim_transcript.search("Ford") >= 0)
+        {
+            socket.emit("commandToArduinoFW", interim_transcript);
+            command_sent = 1;
+        }
+        if (interim_transcript.search("back right") >= 0 || 
+            interim_transcript.search("beck right") >= 0 || 
+            interim_transcript.search("Beck right") >= 0 || 
+            interim_transcript.search("back bright") >= 0 || 
+            interim_transcript.search("beck bright") >= 0 || 
+            interim_transcript.search("bag right") >= 0 || 
+            interim_transcript.search("bag bright") >= 0 || 
+            interim_transcript.search("back write") >= 0 ||
+            interim_transcript.search("beck write") >= 0 || 
+            interim_transcript.search("Beck write") >= 0 || 
+            interim_transcript.search("bag write") >= 0 || 
+            interim_transcript.search("Beck bright") >= 0)
+        {
+            socket.emit("commandToArduinoTurnBkRightL10R5", interim_transcript);
+            command_sent = 1;
+        }
+        if (interim_transcript.search("back left") >= 0 || 
+            interim_transcript.search("beck left") >= 0 || 
+            interim_transcript.search("back let") >= 0 ||
+            interim_transcript.search("beck let") >= 0 || 
+            interim_transcript.search("Beck let") >= 0 ||
+            interim_transcript.search("bag let") >= 0 || 
+            interim_transcript.search("back less") >= 0 || 
+            interim_transcript.search("beck less") >= 0 ||
+            interim_transcript.search("Beck less") >= 0 ||
+            interim_transcript.search("bag less") >= 0 || 
+            interim_transcript.search("Beckley") >= 0 || 
+            interim_transcript.search("back like") >= 0 || 
+            interim_transcript.search("beck like") >= 0 || 
+            interim_transcript.search("Beck like") >= 0 || 
+            interim_transcript.search("bag like") >= 0 || 
+            interim_transcript.search("back links") >= 0 || 
+            interim_transcript.search("beck links") >= 0 || 
+            interim_transcript.search("Beck links") >= 0 || 
+            interim_transcript.search("bag links") >= 0 || 
+            interim_transcript.search("Beck left") >= 0)
+        {
+            socket.emit("commandToArduinoTurnBkLeftL5R10", interim_transcript);
+            command_sent = 1;
+        }
+        if (interim_transcript.search("go right") >= 0 || 
+            interim_transcript.search("forward right") >= 0 || 
+            interim_transcript.search("move right") >= 0 || 
+            interim_transcript.search("go bright") >= 0 || 
+            interim_transcript.search("forward bright") >= 0 || 
+            interim_transcript.search("door right") >= 0 || 
+            interim_transcript.search("go alright") >= 0 || 
+            interim_transcript.search("door alright") >= 0 || 
+            interim_transcript.search("door bright") >= 0 || 
+            interim_transcript.search("door right") >= 0 || 
+            interim_transcript.search("move ray") >= 0 ||
+            interim_transcript.search("moving right") >= 0 || 
+            interim_transcript.search("moving bright") >= 0 || 
+            interim_transcript.search("Google right") >= 0 || 
+            interim_transcript.search("no right") >= 0 ||
+            interim_transcript.search("no bright") >= 0 || 
+            interim_transcript.search("no alright") >= 0 || 
+            interim_transcript.search("move bright") >= 0)
+        {
+            socket.emit("commandToArduinoTurnFwRightL10R5", interim_transcript);
+            command_sent = 1;
+        }
+        if (interim_transcript.search("go left") >= 0 || 
+            interim_transcript.search("forward left") >= 0 || 
+            interim_transcript.search("go let") >= 0 ||
+            interim_transcript.search("golden") >= 0 || 
+            interim_transcript.search("Google left") >= 0 || 
+            interim_transcript.search("move let") >= 0 || 
+            interim_transcript.search("forward let") >= 0 || 
+            interim_transcript.search("Google let") >= 0 || 
+            interim_transcript.search("Angola") >= 0 ||
+            interim_transcript.search("mood let") >= 0 || 
+            interim_transcript.search("mood left") >= 0 ||
+            interim_transcript.search("mood less") >= 0 || 
+            interim_transcript.search("mood like") >= 0 || 
+            interim_transcript.search("mood left") >= 0 || 
+            interim_transcript.search("go less") >= 0 || 
+            interim_transcript.search("go like") >= 0 || 
+            interim_transcript.search("move less") >= 0 || 
+            interim_transcript.search("forward less") >= 0 ||
+            interim_transcript.search("google less") >= 0 || 
+            interim_transcript.search("no left") >= 0 ||
+            interim_transcript.search("no less") >= 0 || 
+            interim_transcript.search("no let") >= 0 || 
+            interim_transcript.search("no like") >= 0 || 
+            interim_transcript.search("no links") >= 0 || 
+            interim_transcript.search("move left") >= 0)
+        {
+            socket.emit("commandToArduinoTurnFwLeftL5R10", interim_transcript);
+            command_sent = 1;
+        }
+        if (interim_transcript.search("manual") >= 0 || 
+            interim_transcript.search("manual control") >= 0 || 
+            interim_transcript.search("step control") >= 0 || 
+            interim_transcript.search("by step") >= 0 || 
+            interim_transcript.search("manual car") >= 0 ||
+            interim_transcript.search("manual can") >= 0 || 
+            interim_transcript.search("manual come") >= 0 || 
+            interim_transcript.search("manual step") >= 0)
+        {
+            socket.emit("ukazArduinuStepCTRL", interim_transcript);
+            command_sent = 1;
+        }
+        if (interim_transcript.search("stop") >= 0 || 
+            interim_transcript.search("break") >= 0 || 
+            interim_transcript.search("house") >= 0 || 
+            interim_transcript.search("step") >= 0 || 
+            interim_transcript.search("stuck") >= 0 || 
+            interim_transcript.search("brake") >= 0 || 
+            interim_transcript.search("stuff") >= 0)
+        {
+            socket.emit("ukazArduinuSTOP", interim_transcript);
+            command_sent = 1;
+        }
+        if (command_sent == 0)
+        {
+            socket.emit("ukazArduinuUNKNOWN", interim_transcript);
+        }
     }
     
   }; // zaključek recognition.on.result

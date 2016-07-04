@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<meta charset=utf-8>
+
+<!-- ********************************************************************** -->        
+<!-- University of Maribor ************************************************ -->
+<!-- Faculty of Organizational Sciences *********************************** -->
+<!-- Cybernetics & Decision Support Systems Laboratory ******************** -->
+<!-- @author Andrej Škraba ************************************************ -->
+<!-- @author Andrej Koložvari********************************************** -->
+<!-- @author Davorin Kofjač *********************************************** -->
+<!-- @author Radovan Stojanović ******************************************* -->
+<!-- ********************************************************************** -->        
+
+<html>
+<head>
+    <title>Govorno upravljanje</title>
+</head>
+
+<style>
+body { font-family: courier}
+</style>        
+    
+<div id="speech" style="border-style:dotted; border-color:#c3c3c3; padding:10px; font-size:24px; font-color:#00ff00; width:477px; text-align:center;">
+Pritisnite gumb START za govorni vhod
+</div>
+    
+<div class="right">
+  <button id="start_button" onclick="startButton(event)">Start</button>
+</div>
+<div id="results">
+  <span id="final_span"></span>
+  <span id="interim_span"></span>
+  <p>
+</div>    
+
+<!-- ******************************************************************************************** -->
+<!-- *** Button switchboard ********************************************************************* -->
+<!-- ******************************************************************************************** -->                
+<br></br>
+
+<button id="buttonTurnFwLeftL5R10" style="height: 162px; width: 162px; font-size:35px;">Lfwd</button>
+<button id="buttonForward" style="height: 162px; width: 162px; font-size:35px;">FWD</button>
+<button id="buttonTurnFwRightL10R5" style="height: 162px; width: 162px; font-size:35px;">Rfwd</button>
+<br>
+<button id="buttonSpinLeft" style="height: 162px; width: 162px; font-size:35px;">SpinL</button>
+<button id="STOPctrlButton" style="height: 162px; width: 162px; font-size:35px;">STOP</button>
+<button id="buttonSpinRight" style="height: 162px; width: 162px; font-size:35px;">SpinR</button>
+<br>
+<button id="buttonTurnBkLeftL5R10" style="height: 162px; width: 162px; font-size:35px;">Lbkw</button>
+<button id="buttonBackward" style="height: 162px; width: 162px; font-size:35px;">BKW</button>    
+<button id="buttonTurnBkRightL10R5" style="height: 162px; width: 162px; font-size:35px;">Rbkw</button>
+<br>
+<button id="buttonStepCTRL" style="height: 162px; width: 162px; font-size:35px;">STEP_M</button>
+<button id="buttonBASwitch" style="height: 162px; width: 162px; font-size:35px;">BA_SW</button>
+<br></br>
+</p>    
+<!-- ******************************************************************************************** -->
+<!-- ******************************************************************************************** -->
+<!-- ******************************************************************************************** -->    
+
+<body>
+    
+<div class = "izpisRazred" id="izpis"></div>
+
+<br>
+
+<div id="output"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+    
+var encoderValueLeft = 0;
+var encoderValueRight = 0;
+
+var output = document.getElementById('izpis');
+var stevec = 0;
+
+function ReplaceContentInContainer(id,content) { // za zamenjavo vsebine div-a
+    var container = document.getElementById(id);
+    container.innerHTML = content;
+}    
+    
+// JavaScript, ki bo uporabljen na strani klienta zapišemo tu
+var socket = io.connect("192.168.1.133:8080"); // ustvarimo spremenljivko socket in povemo, kam se povežemo (vtaknemo)
+//var socket = io.connect("193.2.123.38:8080"); // ustvarimo spremenljivko socket in povemo, kam se povežemo (vtaknemo)
+                                               // io.connect je iz knjižnice socket.io.js, argument je, kam se priključimo
+                                               // ta vrstica pove, naj se klient poveže s strežnikom na naslovu http://93.103.18.222:8080
+                                               // torej zgrabimo socket connection na portu 8080
+
+var output    = document.getElementById('output');
+    
+buttonForward.addEventListener('click', function() {
+    socket.emit("CommandToArduinoMove", {"interim_transcript": "<<EMPTY>>", "CommandNumber": 1, "Orgign": "Button"});
+});
+
+buttonBackward.addEventListener('click', function() {
+    socket.emit("CommandToArduinoMove", {"interim_transcript": "<<EMPTY>>", "CommandNumber": 4, "Orgign": "Button"});
+});
+
+buttonSpinLeft.addEventListener('click', function() {
+    socket.emit("CommandToArduinoMove", {"interim_transcript": "<<EMPTY>>", "CommandNumber": 5, "Orgign": "Button"});
+});
+    
+buttonSpinRight.addEventListener('click', function() {
+    socket.emit("CommandToArduinoMove", {"interim_transcript": "<<EMPTY>>", "CommandNumber": 6, "Orgign": "Button"});
+ });
+    
+buttonTurnFwLeftL5R10.addEventListener('click', function() {
+    socket.emit("CommandToArduinoMove", {"interim_transcript": "<<EMPTY>>", "CommandNumber": 7, "Orgign": "Button"});
+ });
+    
+buttonTurnFwRightL10R5.addEventListener('click', function() {
+    socket.emit("CommandToArduinoMove", {"interim_transcript": "<<EMPTY>>", "CommandNumber": 8, "Orgign": "Button"});
+});    
+
+buttonTurnBkLeftL5R10.addEventListener('click', function() {
+    socket.emit("CommandToArduinoMove", {"interim_transcript": "<<EMPTY>>", "CommandNumber": 9, "Orgign": "Button"});
+});
+    
+buttonTurnBkRightL10R5.addEventListener('click', function() {
+    socket.emit("CommandToArduinoMove", {"interim_transcript": "<<EMPTY>>", "CommandNumber": 10, "Orgign": "Button"});
+});    
+    
+STOPctrlButton.addEventListener('click', function() {
+    socket.emit("CommandToArduinoMove", {"interim_transcript": "<<EMPTY>>", "CommandNumber": 0, "Orgign": "Button"});
+});
+
+buttonBASwitch.addEventListener('click', function() {
+    socket.emit("CommandToArduinoMove", {"interim_transcript": "<<EMPTY>>", "CommandNumber": 0, "Orgign": "Button"});
+});
+
+buttonStepCTRL.addEventListener('click', function() {
+    socket.emit("CommandToArduinoMove", {"interim_transcript": "<<EMPTY>>", "CommandNumber": 11, "Orgign": "Button"});
+});
+    
+// *****************************************************************************
+// Koda za speech API ZAČETEK
+// *****************************************************************************
+
+var final_transcript = '';
+var recognizing = false;
+var ignore_onend;
+var start_timestamp;
+if (!('webkitSpeechRecognition' in window)) {
+  upgrade();
+} else {
+  var recognition = new webkitSpeechRecognition();
+  recognition.continuous = false;
+  recognition.interimResults = true;
+
+  recognition.onstart = function() {
+    recognizing = true;
+    document.getElementById("start_button").innerText = "Govorite v mikrofon";
+  };
+
+  recognition.onerror = function(event) {
+    if (event.error == 'no-speech') {
+      document.getElementById("start_button").innerText = "Start Microphone";
+      ReplaceContentInContainer("speech", "Govor ni bil zaznan.");
+      ignore_onend = true;
+    }
+    if (event.error == 'audio-capture') {
+      document.getElementById("start_button").innerText = "Start Microphone";
+      ReplaceContentInContainer("speech", "Ni mikrofona!");
+      ignore_onend = true;
+    }
+    if (event.error == 'not-allowed') {
+      if (event.timeStamp - start_timestamp < 100) {
+        ReplaceContentInContainer("speech", "Govor je blokiran / onemogočen!");
+      } else {
+        ReplaceContentInContainer("speech", "Govorni vhod je zavrnjen.");
+      }
+      ignore_onend = true;
+    }
+  };
+  
+  recognition.onend = function() { // start the recognition once again
+    ReplaceContentInContainer("speech", "Ponovni zagon!");
+    document.getElementById("start_button").innerText = "Mikrofon onemogočen";
+    recognition.start();
+};
+
+
+var final_trs;
+
+var NCommands = 12;
+var Transcript_variants = Array(NCommands);
+for (var i=0;i!=NCommands;i++)
+{
+    Transcript_variants[i] = Array();
+    if (i == 0) //Stop
+    {
+        Transcript_variants[i].push("stop"); 
+        Transcript_variants[i].push("break"); 
+        Transcript_variants[i].push("house"); 
+        Transcript_variants[i].push("step"); 
+        Transcript_variants[i].push("stuck"); 
+        Transcript_variants[i].push("brake"); 
+        Transcript_variants[i].push("stuff");
+    }
+    if (i == 1) //Go
+    {
+        Transcript_variants[i].push("go");
+        Transcript_variants[i].push("forward");
+        Transcript_variants[i].push("move");
+        Transcript_variants[i].push("ford");
+        Transcript_variants[i].push("gold");
+        Transcript_variants[i].push("goat"); 
+        Transcript_variants[i].push("good"); 
+        Transcript_variants[i].push("ghost"); 
+        Transcript_variants[i].push("Google");
+        Transcript_variants[i].push("mood"); 
+        Transcript_variants[i].push("gold"); 
+        Transcript_variants[i].push("4 hour"); 
+        Transcript_variants[i].push("four hour");
+        Transcript_variants[i].push("no");
+        Transcript_variants[i].push("Ford");
+    }
+    if (i == 2) // Left
+    {
+        Transcript_variants[i].push("let");
+        Transcript_variants[i].push("less"); 
+        Transcript_variants[i].push("like"); 
+        Transcript_variants[i].push("links"); 
+        Transcript_variants[i].push("left");
+    }
+    if (i == 3) // Right
+    {
+        Transcript_variants[i].push("right"); 
+        Transcript_variants[i].push("arright"); 
+        Transcript_variants[i].push("write"); 
+        Transcript_variants[i].push("bright");
+    }
+    if (i == 4) // Back
+    {
+        Transcript_variants[i].push("back"); 
+        Transcript_variants[i].push("beck"); 
+        Transcript_variants[i].push("Beck"); 
+        Transcript_variants[i].push("go back"); 
+        Transcript_variants[i].push("go beck"); 
+        Transcript_variants[i].push("go bag");
+        Transcript_variants[i].push("gold back");
+        Transcript_variants[i].push("gold beck");
+        Transcript_variants[i].push("gold Beck");
+        Transcript_variants[i].push("gold bag");
+        Transcript_variants[i].push("goat back");
+        Transcript_variants[i].push("goat beck");
+        Transcript_variants[i].push("goat Beck");
+        Transcript_variants[i].push("goat bag");
+        Transcript_variants[i].push("good back");
+        Transcript_variants[i].push("good beck");
+        Transcript_variants[i].push("good Beck");
+        Transcript_variants[i].push("good bag");
+        Transcript_variants[i].push("Google back");
+        Transcript_variants[i].push("Google beck");
+        Transcript_variants[i].push("Google Beck");
+        Transcript_variants[i].push("Google bag");
+        Transcript_variants[i].push("no back");
+        Transcript_variants[i].push("no beck");
+        Transcript_variants[i].push("no Beck");
+        Transcript_variants[i].push("no bag");
+        Transcript_variants[i].push("go Beck");
+    }
+    if (i == 5) // Spin left
+    {
+        Transcript_variants[i].push("spin left");
+        Transcript_variants[i].push("spin let");
+        Transcript_variants[i].push("spin less"); 
+        Transcript_variants[i].push("spin like"); 
+        Transcript_variants[i].push("spin links"); 
+        Transcript_variants[i].push("turn left");
+        Transcript_variants[i].push("turn let");
+        Transcript_variants[i].push("turn less"); 
+        Transcript_variants[i].push("turn like"); 
+        Transcript_variants[i].push("turn links"); 
+    }
+    if (i == 6) // Spin right
+    {
+        Transcript_variants[i].push("spin bright"); 
+        Transcript_variants[i].push("spin right"); 
+        Transcript_variants[i].push("spin arright"); 
+        Transcript_variants[i].push("spin write"); 
+        Transcript_variants[i].push("turn bright"); 
+        Transcript_variants[i].push("turn right"); 
+        Transcript_variants[i].push("turn arright"); 
+        Transcript_variants[i].push("turn write");
+    }
+    if (i == 7) // Go left
+    {
+        Transcript_variants[i].push("go left"); 
+        Transcript_variants[i].push("forward left"); 
+        Transcript_variants[i].push("go let");
+        Transcript_variants[i].push("golden"); 
+        Transcript_variants[i].push("Google left"); 
+        Transcript_variants[i].push("move let"); 
+        Transcript_variants[i].push("forward let"); 
+        Transcript_variants[i].push("Google let"); 
+        Transcript_variants[i].push("Angola");
+        Transcript_variants[i].push("mood let"); 
+        Transcript_variants[i].push("mood left");
+        Transcript_variants[i].push("mood less"); 
+        Transcript_variants[i].push("mood like"); 
+        Transcript_variants[i].push("mood left"); 
+        Transcript_variants[i].push("go less"); 
+        Transcript_variants[i].push("go like"); 
+        Transcript_variants[i].push("move less"); 
+        Transcript_variants[i].push("forward less");
+        Transcript_variants[i].push("google less"); 
+        Transcript_variants[i].push("no left");
+        Transcript_variants[i].push("no less"); 
+        Transcript_variants[i].push("no let"); 
+        Transcript_variants[i].push("no like"); 
+        Transcript_variants[i].push("no links"); 
+        Transcript_variants[i].push("move left");
+    }
+    if (i == 8) // Go right
+    {
+        Transcript_variants[i].push("go right"); 
+        Transcript_variants[i].push("forward right"); 
+        Transcript_variants[i].push("move right"); 
+        Transcript_variants[i].push("go bright"); 
+        Transcript_variants[i].push("forward bright"); 
+        Transcript_variants[i].push("door right"); 
+        Transcript_variants[i].push("go alright"); 
+        Transcript_variants[i].push("door alright"); 
+        Transcript_variants[i].push("door bright"); 
+        Transcript_variants[i].push("door right"); 
+        Transcript_variants[i].push("move ray");
+        Transcript_variants[i].push("moving right"); 
+        Transcript_variants[i].push("moving bright"); 
+        Transcript_variants[i].push("Google right"); 
+        Transcript_variants[i].push("no right");
+        Transcript_variants[i].push("no bright"); 
+        Transcript_variants[i].push("no alright"); 
+        Transcript_variants[i].push("move bright");
+    }
+    if (i == 9) // Back left
+    {
+        Transcript_variants[i].push("back left"); 
+        Transcript_variants[i].push("beck left"); 
+        Transcript_variants[i].push("back let");
+        Transcript_variants[i].push("beck let"); 
+        Transcript_variants[i].push("Beck let");
+        Transcript_variants[i].push("bag let"); 
+        Transcript_variants[i].push("back less"); 
+        Transcript_variants[i].push("beck less");
+        Transcript_variants[i].push("Beck less");
+        Transcript_variants[i].push("bag less"); 
+        Transcript_variants[i].push("Beckley"); 
+        Transcript_variants[i].push("back like"); 
+        Transcript_variants[i].push("beck like"); 
+        Transcript_variants[i].push("Beck like"); 
+        Transcript_variants[i].push("bag like"); 
+        Transcript_variants[i].push("back links"); 
+        Transcript_variants[i].push("beck links"); 
+        Transcript_variants[i].push("Beck links"); 
+        Transcript_variants[i].push("bag links"); 
+        Transcript_variants[i].push("Beck left");
+    }
+    if (i == 10) // Back right
+    {
+        Transcript_variants[i].push("back right"); 
+        Transcript_variants[i].push("beck right"); 
+        Transcript_variants[i].push("Beck right"); 
+        Transcript_variants[i].push("back bright"); 
+        Transcript_variants[i].push("beck bright"); 
+        Transcript_variants[i].push("bag right"); 
+        Transcript_variants[i].push("bag bright"); 
+        Transcript_variants[i].push("back write");
+        Transcript_variants[i].push("beck write"); 
+        Transcript_variants[i].push("Beck write"); 
+        Transcript_variants[i].push("bag write"); 
+        Transcript_variants[i].push("Beck bright");
+    }
+    if (i == 11) // Manual
+    {
+        Transcript_variants[i].push("manual"); 
+        Transcript_variants[i].push("manual control"); 
+        Transcript_variants[i].push("step control"); 
+        Transcript_variants[i].push("by step"); 
+        Transcript_variants[i].push("manual car");
+        Transcript_variants[i].push("manual can"); 
+        Transcript_variants[i].push("manual come"); 
+        Transcript_variants[i].push("manual step");
+    }
+}
+
+//setTimeout(function(){recognition.stop(); recognition.start(); log("ZAGNANA razpoznava");}, 3000); // po treh sekundah ustavimo in poženemo razpoznavo
+//setTimeout(function(){recognition.stop(); log("STOP");}, 10000);
+//setTimeout(function(){recognition.stop(); log("ZAGNANA razpoznava po 12s");}, 12000);
+
+  recognition.onresult = function(event) {
+    var interim_transcript = '';
+    for (var i = event.resultIndex; i < event.results.length; ++i) {
+      if (event.results[i].isFinal) {
+        final_transcript += event.results[i][0].transcript;
+        final_trs = event.results[i][0].transcript;
+        interim_transcript += event.results[i][0].transcript;
+      } else {
+        interim_transcript += event.results[i][0].transcript;
+      }
+    } 
+    
+    var NOfWords = 0;
+    var ResultsMass = Array();
+    var NOfResults = Array();
+    var TotalNVariants = 1;
+    for (var i=event.resultIndex;i!=event.results.length;i++)
+    {
+        if (NOfWords > 2)
+            break;
+        var tempNRes = 0;
+        console.log(event.results[i].length);
+        for (var j=0;j!=event.results[i].length;j++)
+        {
+            console.log(event.results[i][j].transcript);
+            console.log(event.results[i][j].confidence);
+            if (event.results[i][j].confidence < 0.10)
+                break;
+            tempNRes ++;
+        }
+        NOfResults.push(event.results[i].length);
+        if (NOfResults[NOfWords] > 3)
+            NOfResults[NOfWords] = 3;
+        TotalNVariants *= NOfResults[NOfWords];
+        //console.log(TotalNVariants);
+        NOfWords++;
+    }
+    var Indexes = Array(NOfWords);
+    for (var i=0;i!=NOfWords;i++)
+    {
+        Indexes[i] = 0;
+    }
+    var temp_transcript = '';
+    for (var i=0;i!=TotalNVariants;i++)
+    {
+        for (var j=0;j!=NOfWords;j++)
+        {
+            temp_transcript += event.results[event.resultIndex + j][Indexes[j]].transcript;
+        }
+        Indexes[NOfWords-1]++;
+        for (var j=0;j!=NOfWords-1;j++)
+        {
+            if (Indexes[j] == NOfResults[j])
+            {
+                Indexes[j] = 0;
+                Indexes[j+1]++;
+            }
+        }
+        ResultsMass.push(temp_transcript);
+        //console.log(ResultsMass[i]);
+    }
+    
+    ReplaceContentInContainer("speech", interim_transcript);
+    
+    for (var i=0;i!=TotalNVariants;i++)
+    {
+        interim_transcript = ResultsMass[i];
+        var command_sent = -1;
+        for (var j=0;j!=NCommands;j++)
+        {
+            for (var k=0;k!=Transcript_variants[j].length;k++)
+            {
+                if (interim_transcript.search(Transcript_variants[j][k]) >= 0)
+                {
+                    command_sent = j;
+                    socket.emit("CommandToArduinoMove", {"interim_transcript": interim_transcript, "CommandNumber": command_sent, "Origin": "G"});
+                }
+            }
+        }
+        if (command_sent == -1)
+        {
+            socket.emit("ukazArduinuUNKNOWN", {"interim_transcript": interim_transcript, "CommandNumber": command_sent, "Origin": "G"});
+        }
+    }
+    
+  }; // zaključek recognition.on.result
+}
+
+function upgrade() {
+    ReplaceContentInContainer("speech", 'You have to upgrade Chrome to version 25 of higher');
+}
+
+var two_line = /\n\n/g;
+var one_line = /\n/g;
+function linebreak(s) {
+  return s.replace(two_line, '<p></p>').replace(one_line, '<br>');
+}
+
+function startButton(event) {
+  if (recognizing) {
+    recognition.stop();
+    return;
+  }
+  final_transcript = '';
+  //recognition.lang = "sr-RS"; // določimo jezik angleščina z ameriškim (angleškim) dialektom; za Српски -> "sr-RS"
+  recognition.lang = "en-US";
+  recognition.start();
+  ignore_onend = false;
+  final_span.innerHTML = '';
+  interim_span.innerHTML = '';
+  document.getElementById("start_button").innerText = "Mikrofon onemogočen";
+  ReplaceContentInContainer("speech", "Lahko govorite!");
+  start_timestamp = event.timeStamp;
+}
+// *****************************************************************************
+// Koda za speech API KONEC
+// *****************************************************************************    
+    
+</script>
+</body>
+</html>
