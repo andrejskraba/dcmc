@@ -617,7 +617,7 @@ function handler (req, res) { // handler za "response"; ta handler "handla" le d
         
     case ('/heartrate') : // v primeru, da je v web naslovu na koncu napisano /zahvala
                
-    fs.readFile(__dirname + "/heartrate2.html",
+    fs.readFile(__dirname + "/heartrate3.html",
     function (err, data) { // callback funkcija za branje tekstne datoteke
         if (err) {
             res.writeHead(500);
@@ -3543,7 +3543,7 @@ io.sockets.on("connection", function(socket) {  // od oklepaja ( dalje imamo arg
         socket.emit("LidarData", readDataL);
         LastTimer = Date.now();
     
-        socket.emit("HeartBeat", {"BeatSignal" : BeatSignal, "BPM": BPM, "IBI" : IBI});
+        //socket.emit("HeartBeat", {"BeatSignal" : Signal, "BPM": HR, "IBI" : SpO2});
         
         socket.emit("readOutControlLeftRight", {"PWMleft": PWMleft, "PWMright": PWMright});
      
@@ -3564,156 +3564,126 @@ io.sockets.on("connection", function(socket) {  // od oklepaja ( dalje imamo arg
         
     }
     
+    function SendHeartbeatData() {
+        
+    	if (value_changed == 2)
+       	{
+    		value_changed = 0;
+    		writelog_heart(Date.now() + "\tSignal =\t" + Signal + "\tBPM =\t" + parseInt(HR) + "\tSpO2 =\t" + SpO2 + "\tREV =\t" + REV);
+    	    socket.emit("HeartBeat", {"BeatSignal" : Signal, "BPM": HR, "SpO2" : SpO2, "REV" : REV});
+    	}	
+        
+    }
+    
+var SendHeartbeatDataTimer=setInterval(function(){SendHeartbeatData()}, 10); 
+    
 var ControlAndDisplayLeftRightTimer=setInterval(function(){ControlAndDisplayLeftRight()}, refreshFrequency);        
     
 });
 
-var tempval = 0;
-var messageReceived = true;
-    
-var BPM = 60;                    // used to hold the pulse rate
-var BeatSignal;                 // holds the incoming raw data
-var IBI = 600;              // holds the time between beats, the Inter-Beat Interval
-var Pulse = false;          // true when pulse wave is high, false when it's low
-var QS = false;             // becomes true when finds a beat.
+var serialPortHR = new SerialPort("/dev/ttyUSB1", {
+  baudRate: 9600, 
+  dataBits: 8, 
+  parity: 'none',
+  stopBits: 1, 
+  flowControl: false
+}, false);
 
-var rate = Array(10);
-var sampleCounter = 0;
-var lastBeatTime = 0;
-var P = 512;                     // used to find peak in pulse wave
-var T = 512;                     // used to find trough in pulse wave
-var thresh = 512;                // used to find instant moment of heart beat
-var amp = 100;                   // used to hold amplitude of pulse waveform
-var firstBeat = true;            // used to seed rate array so we startup with reasonable BPM
-var secondBeat = true;           // used to seed rate array so we startup with reasonable BPM
+var init_level2 = 0;
+var bytes_read = 0;
+var frames_read = 0;
 
-var WebSocketClient = require('websocket').client;
- 
-var client = new WebSocketClient();
- 
-client.on('connectFailed', function(error) {
-    console.log('Connect Error: ' + error.toString());
+//var status = "";
+//var pleth = "";
+
+var HR = 0;
+var SpO2 = 0;
+var REV = 0;
+var HR_MSB = 0;
+var HR_LSB = 0;
+var Signal = 0;
+var value_changed = 0;
+
+var tempstring = "";
+
+serialPortHR.open(function (error) {
+  if (error) {
+    console.log('failed to open heartrate: '+error);
+  } else {
+    console.log('heartrate open');
+    serialPortHR.on('data', function(data) { // call back when data is received
+
+	for (var i=0; i<data.length;i++)
+        {
+	    if (init_level2 == 0)
+	    {
+	        if (data[i] == 0x01)
+    		{
+    		    //console.log("INIT 1");
+    		    init_level2 = 1;
+    		    bytes_read = 1;
+    		    tempstring += data[i] + "\t";
+    		    continue;
+    		}
+	    }
+	    else if (init_level2 == 1)
+	    {
+		if (bytes_read == 1)
+		{
+		    if (data[i] & 0x01 == 0x01)
+		    {
+			frames_read = 0;
+		    }
+		    else
+		    {
+			frames_read ++;
+		    }
+		}	
+		if (bytes_read == 2)
+		{
+		    Signal = data[i];
+		    if (value_changed != 2)
+		        value_changed ++;
+		}
+		if (bytes_read == 3)
+		{
+		    if (frames_read == 0)
+		    {
+			HR_MSB = data[i];
+		    }
+		    if (frames_read == 1)
+		    {
+			HR_LSB = data[i];
+		    }
+		    if (frames_read == 2)
+		    {
+			SpO2 = data[i];
+		    }
+		    if (frames_read == 3)
+		    {
+			REV = data[i];
+		    }
+		}
+		if (bytes_read == 4)
+		{
+		}
+		bytes_read++;
+		if (bytes_read == 5)
+		{
+		    if (frames_read == 24)
+		    {
+			HR = HR_LSB + HR_MSB*256;
+			console.log("HR = " + HR + "\t" + "SpO2 = " + SpO2 + "\t" + "REV = " + REV);
+		    }
+		    init_level2 = 0;
+		    bytes_read = 0;
+		}
+	    }
+	}	
+    });
+    /*serialPortHR.write("ls\n", function(err, results) {
+      console.log('err ' + err);
+      console.log('results ' + results);
+    });*/
+  }
 });
- 
-client.on('connect', function(connection) {
-    console.log('WebSocket Client Connected');
-    connection.on('error', function(error) {
-        console.log("Connection Error: " + error.toString());
-    });
-    connection.on('close', function() {
-        console.log('echo-protocol Connection Closed');
-    });
-    connection.on('message', function(message) {
-        /*if (message.type === 'utf8') {
-            console.log("Received: '" + message.utf8Data + "'");
-        }*/
-        
-        messageReceived = true;
-    	//console.log('Server: ', message.utf8Data);
-    	//connection.send('Time: ' + new Date()); 
-        var potVrednost = parseInt(message.utf8Data);
-        BeatSignal = potVrednost;
-        //console.log(Signal);    
-        //console.log(Date.now());
-        
-        sampleCounter = Date.now();
-        var N = sampleCounter - lastBeatTime;
-        if (BeatSignal < thresh && N > (IBI/5)*3)
-        {       // avoid dichrotic noise by waiting 3/5 of last IBI
-            if (BeatSignal < T)
-            {                        // T is the trough
-                T = BeatSignal;                         // keep track of lowest point in pulse wave 
-            }
-        }
-          
-        if (BeatSignal > thresh && BeatSignal > P)
-        {          // thresh condition helps avoid noise
-            P = BeatSignal;                             // P is the peak
-        } 
-        //  NOW IT'S TIME TO LOOK FOR THE HEART BEAT
-        // signal surges up in value every time there is a pulse
-        if (N > 250)
-        {                                   // avoid high frequency noise
-            //console.log(N + ' ' + Signal + ' ' + IBI + ' ' + thresh);
-            if ((BeatSignal > thresh) && (Pulse == false) && (N > (IBI/5)*3))
-            {       
-                Pulse = true;                               // set the Pulse flag when we think there is a pulse
-                //digitalWrite(blinkPin,HIGH);                // turn on pin 13 LED
-                IBI = sampleCounter - lastBeatTime;         // measure time between beats in mS
-                lastBeatTime = sampleCounter;               // keep track of time for next pulse
-    
-                if (firstBeat)
-                {                         // if it's the first time we found a beat, if firstBeat == TRUE
-                    firstBeat = false;                 // clear firstBeat flag
-                    return;                            // IBI value is unreliable so discard it
-                    //console.log("RETURN???");
-                }   
-                if (secondBeat)
-                {                        // if this is the second beat, if secondBeat == TRUE
-                    secondBeat = false;                 // clear secondBeat flag
-                    for (var i=0; i<=9; i++)
-                    {         // seed the running total to get a realisitic BPM at startup
-                        rate[i] = IBI;                      
-                    }
-                }
-    
-                // keep a running total of the last 10 IBI values
-                var runningTotal = 0;                   // clear the runningTotal variable    
-    
-                for (var i=0; i<=8; i++)
-                {                // shift data in the rate array
-                    rate[i] = rate[i+1];              // and drop the oldest IBI value 
-                    runningTotal += rate[i];          // add up the 9 oldest IBI values
-                }
-    
-                rate[9] = IBI;                          // add the latest IBI to the rate array
-                runningTotal += rate[9];                // add the latest IBI to runningTotal
-                runningTotal /= 10;                     // average the last 10 IBI values 
-                BPM = 60000/runningTotal;               // how many beats can fit into a minute? that's BPM!
-                QS = true;                              // set Quantified Self flag 
-                // QS FLAG IS NOT CLEARED INSIDE THIS ISR
-                //log('BPM = ' + parseInt(BPM) + ' IBI = ' + IBI);
-                //console.log('BPM = ' + parseInt(BPM) + ' IBI = ' + IBI);
-            }                       
-        }
-    
-        if (BeatSignal < thresh && Pulse == true)
-        {     // when the values are going down, the beat is over
-          //digitalWrite(blinkPin,LOW);            // turn off pin 13 LED
-          Pulse = false;                         // reset the Pulse flag so we can do it again
-          amp = P - T;                           // get amplitude of the pulse wave
-          thresh = amp/2 + T;                    // set thresh at 50% of the amplitude
-          P = thresh;                            // reset these for next time
-          T = thresh;
-        }
-      
-        if (N > 2500)
-        {                                        // if 2.5 seconds go by without a beat
-          thresh = 512;                          // set thresh default
-          P = 512;                               // set P default
-          T = 512;                               // set T default
-          lastBeatTime = sampleCounter;          // bring the lastBeatTime up to date        
-          firstBeat = true;                      // set these to avoid noise
-          secondBeat = true;                     // when we get the heartbeat back
-          IBI = 600;
-        }
-    
-    });
-    
-    setInterval(function() {
-        //console.log("messageReceived = " + messageReceived);
-        if (connection.connected) {
-            if (messageReceived)
-            {
-                //console.log("Sending message to NodeMCU");
-                tempval++
-    			connection.sendUTF('tempval: ' + tempval); 
-                messageReceived = false;
-            }
-        }
-        writelog_heart(Date.now() + "\tSignal =\t" + BeatSignal + "\tBPM =\t" + parseInt(BPM) + "\tIBI =\t" + IBI);
-    }, 50);
-
-});
-
-client.connect('ws://192.168.1.114:81/', ['arduino']);
